@@ -9,6 +9,7 @@ pub enum TokenType {
     // Operators
     ASSIGN,
     PLUS,
+    MINUS,
     // Delimiters
     COMMA,
     SEMICOLON,
@@ -25,15 +26,4 @@ pub enum TokenType {
 pub struct Token {
     pub token_type: TokenType,
     pub literal: String,
-}
-
-#[derive(PartialEq, Clone, Debug)]
-pub struct Tokens {
-    pub tokens: Vec<Token>,
-}
-
-impl Tokens {
-    pub fn new(_program: String) -> Self {
-        todo!()
-    }
 }
