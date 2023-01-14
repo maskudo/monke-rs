@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 mod token;
-use token::TokenType::*;
+use token::Token::*;
 use token::*;
 
 pub struct Lexer {
@@ -33,21 +33,14 @@ impl Lexer {
         self.read_pos += 1;
     }
 
-    pub fn new_token(token_type: TokenType, ch: u8) -> Token {
-        Token {
-            token_type,
-            literal: String::from(ch as char),
-        }
-    }
-
     pub fn next_token(&mut self) -> Token {
         let token: Token = match self.ch {
-            b'=' => Lexer::new_token(ASSIGN, b'='),
-            b'+' => Lexer::new_token(PLUS, b'+'),
-            b'-' => Lexer::new_token(MINUS, b'-'),
-            b'{' => Lexer::new_token(LBRACE, b'{'),
-            b'}' => Lexer::new_token(RBRACE, b'}'),
-            _ => Lexer::new_token(EOF, b'\0'),
+            b'=' => Assign,
+            b'+' => Plus,
+            b'-' => Minus,
+            b'{' => LBrace,
+            b'}' => RBrace,
+            _ => Token::EOF,
         };
         self.read_char();
         token
@@ -60,32 +53,7 @@ mod test {
     #[test]
     fn test_next_token() {
         let input = String::from("+-{}=");
-        let tokens = vec![
-            Token {
-                token_type: PLUS,
-                literal: String::from("+"),
-            },
-            Token {
-                token_type: MINUS,
-                literal: String::from("-"),
-            },
-            Token {
-                token_type: LBRACE,
-                literal: String::from("{"),
-            },
-            Token {
-                token_type: RBRACE,
-                literal: String::from("}"),
-            },
-            Token {
-                token_type: ASSIGN,
-                literal: String::from("="),
-            },
-            Token {
-                token_type: EOF,
-                literal: String::from("\0"),
-            },
-        ];
+        let tokens = vec![Plus, Minus, LBrace, RBrace, Assign];
 
         let mut tokenized_input = Lexer::new(input);
         for token in tokens {
