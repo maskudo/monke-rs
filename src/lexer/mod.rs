@@ -57,7 +57,10 @@ impl Lexer {
             self.read_char();
         }
         //not sure about this #UNSURE
-        String::from_utf8_lossy(&self.input.as_bytes()[pos..self.pos]).to_string()
+        let res = String::from_utf8_lossy(&self.input.as_bytes()[pos..self.pos]).to_string();
+        self.pos -= 1;
+        self.read_pos -= 1;
+        res
     }
 
     fn read_number(&mut self) -> Result<i64, std::num::ParseIntError> {
@@ -65,9 +68,12 @@ impl Lexer {
         while Lexer::is_digit(self.ch) {
             self.read_char();
         }
-        String::from_utf8_lossy(&self.input.as_bytes()[pos..self.pos])
+        let res = String::from_utf8_lossy(&self.input.as_bytes()[pos..self.pos])
             .to_string()
-            .parse::<i64>()
+            .parse::<i64>();
+        self.pos -= 1;
+        self.read_pos -= 1;
+        res
     }
 
     fn skip_whitespace(&mut self) {
@@ -96,6 +102,7 @@ impl Lexer {
             b')' => RParen,
             b'[' => LBracket,
             b']' => RBracket,
+            0 => EOF,
             _ => {
                 if Lexer::is_letter(self.ch) {
                     let literal = self.read_identifier();
@@ -167,7 +174,7 @@ mod test {
             LBrace,
             Ident(String::from("x")),
             Plus,
-            Ident(String::from("x")),
+            Ident(String::from("y")),
             SemiColon,
             RBrace,
             SemiColon,
