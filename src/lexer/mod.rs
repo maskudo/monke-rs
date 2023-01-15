@@ -82,22 +82,59 @@ impl Lexer {
         }
     }
 
+    fn peek_char(&self) -> u8 {
+        if self.read_pos >= self.input.len() {
+            0
+        } else {
+            self.input.as_bytes()[self.read_pos]
+        }
+    }
+
     pub fn next_token(&mut self) -> Token {
         self.skip_whitespace();
         let token: Token = match self.ch {
-            b'=' => Assign,
+            b'=' => {
+                if self.peek_char() == b'=' {
+                    self.read_char();
+                    Equal
+                } else {
+                    Assign
+                }
+            }
             b'+' => Plus,
             b'-' => Minus,
-            b'{' => LBrace,
-            b'}' => RBrace,
-            b'!' => Not,
             b'/' => Divide,
             b'*' => Multiply,
+            b'!' => {
+                if self.peek_char() == b'=' {
+                    self.read_char();
+                    NotEqual
+                } else {
+                    Not
+                }
+            }
+
+            b'>' => {
+                if self.peek_char() == b'=' {
+                    self.read_char();
+                    GreaterThanEqual
+                } else {
+                    GreaterThan
+                }
+            }
+            b'<' => {
+                if self.peek_char() == b'=' {
+                    self.read_char();
+                    LessThanEqual
+                } else {
+                    LessThan
+                }
+            }
             b',' => Comma,
-            b'>' => GreaterThan,
-            b'<' => LessThan,
             b';' => SemiColon,
             b':' => Colon,
+            b'{' => LBrace,
+            b'}' => RBrace,
             b'(' => LParen,
             b')' => RParen,
             b'[' => LBracket,
@@ -135,6 +172,7 @@ mod test {
         let mut tokenized_input = Lexer::new(input);
         for token in tokens {
             let t = tokenized_input.next_token();
+            // println!("{:?} , tokenized: {:?}", token, t);
             assert_eq!(token, t);
         }
         // assert_eq!(tokens, tokenized_input);
@@ -193,7 +231,42 @@ mod test {
         let mut tokenized_input = Lexer::new(input);
         for token in tokens {
             let t = tokenized_input.next_token();
+            // println!("{:?} , tokenized: {:?}", token, t);
             assert_eq!(token, t);
         }
+    }
+
+    #[test]
+    fn test_next_token_3() {
+        let input = String::from(
+            "
+            !-/*5;
+            10 == 10;
+            10 != 9;",
+        );
+        let tokens = vec![
+            Not,
+            Minus,
+            Divide,
+            Multiply,
+            IntLiteral(5),
+            SemiColon,
+            IntLiteral(10),
+            Equal,
+            IntLiteral(10),
+            SemiColon,
+            IntLiteral(10),
+            NotEqual,
+            IntLiteral(9),
+            SemiColon,
+        ];
+
+        let mut tokenized_input = Lexer::new(input);
+        for token in tokens {
+            let t = tokenized_input.next_token();
+            // println!("{:?} , tokenized: {:?}", token, t);
+            assert_eq!(token, t);
+        }
+        // assert_eq!(tokens, tokenized_input);
     }
 }
