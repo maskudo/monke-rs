@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-mod token;
+pub mod token;
 
 use token::Token;
 use token::Token::*;
