@@ -9,8 +9,11 @@ pub enum Stmt {
     Expr(Expr),
 }
 #[derive(PartialEq, PartialOrd, Debug, Clone)]
-pub enum Expr {}
+pub enum Expr {
+    IntLiteral(i64),
+}
 
+#[derive(Debug, PartialEq, Clone)]
 pub struct Program {
     pub statements: Vec<Stmt>,
 }
