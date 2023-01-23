@@ -5,7 +5,7 @@ use self::ast::{Ident, Program, Stmt};
 use super::lexer::token::Token;
 use super::lexer::Lexer;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum ParseErrorKind {
     UnexpectedToken,
 }
@@ -24,7 +24,7 @@ impl ParseError {
 
 pub type ParseErrors = Vec<ParseError>;
 
-#[derive()]
+#[derive(Clone, Debug)]
 struct Parser {
     lexer: Lexer,
     cur_token: Token,
@@ -110,8 +110,18 @@ impl Parser {
         Some(Stmt::Let(Ident(name), ast::Expr::IntLiteral(value)))
     }
 
-    fn parse_return_stmt(&self) -> Option<Stmt> {
-        unimplemented!();
+    fn parse_return_stmt(&mut self) -> Option<Stmt> {
+        self.next_token();
+        let mut value: i64 = 0;
+        if let Token::IntLiteral(val) = self.cur_token {
+            value = val;
+        }
+
+        while !self.cur_token_is(Token::SemiColon) {
+            self.next_token();
+        }
+
+        Some(Stmt::Return(ast::Expr::IntLiteral(value)))
     }
 
     fn parse_expr_stmt(&self) -> Option<Stmt> {
@@ -168,6 +178,38 @@ mod test {
                 Stmt::Let(Ident(String::from("x")), Expr::IntLiteral(5)),
                 Stmt::Let(Ident(String::from("y")), Expr::IntLiteral(10)),
                 Stmt::Let(Ident(String::from("foobar")), Expr::IntLiteral(838383)),
+            ],
+        };
+        assert_eq!(output, program);
+        println!("{:?}", program);
+    }
+
+    #[test]
+    fn test_return_statements() {
+        let input = String::from(
+            "
+            return 5;
+            return 10;
+            return 993322;
+        ",
+        );
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+        check_parser_errors(&parser);
+        if program.statements.len() != 3 {
+            panic!(
+                "program doesnt contain 3 statements, it contains {:?}",
+                program.statements.len()
+            );
+        }
+        let output = Program {
+            statements: vec![
+                Stmt::Return(Expr::IntLiteral(5)),
+                Stmt::Return(Expr::IntLiteral(10)),
+                Stmt::Return(Expr::IntLiteral(993322)),
             ],
         };
         assert_eq!(output, program);
