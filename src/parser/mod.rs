@@ -5,11 +5,31 @@ use self::ast::{Ident, Program, Stmt};
 use super::lexer::token::Token;
 use super::lexer::Lexer;
 
+#[derive(Debug, Clone)]
+pub enum ParseErrorKind {
+    UnexpectedToken,
+}
+
+#[derive(Debug, Clone)]
+pub struct ParseError {
+    kind: ParseErrorKind,
+    message: String,
+}
+
+impl ParseError {
+    pub fn new(kind: ParseErrorKind, message: String) -> Self {
+        ParseError { kind, message }
+    }
+}
+
+pub type ParseErrors = Vec<ParseError>;
+
 #[derive()]
 struct Parser {
     lexer: Lexer,
     cur_token: Token,
     peek_token: Token,
+    errors: ParseErrors,
 }
 
 impl Parser {
@@ -18,10 +38,24 @@ impl Parser {
             lexer,
             cur_token: Token::EOF,
             peek_token: Token::EOF,
+            errors: vec![],
         };
         p.next_token();
         p.next_token();
         p
+    }
+
+    fn errors(&self) -> ParseErrors {
+        self.errors.clone()
+    }
+
+    fn peek_error(&mut self, t: Token) {
+        let msg = format!(
+            "expected next token to be {:?} but got {:?} instead",
+            t, self.peek_token
+        );
+        self.errors
+            .push(ParseError::new(ParseErrorKind::UnexpectedToken, msg));
     }
 
     fn next_token(&mut self) {
@@ -37,10 +71,11 @@ impl Parser {
         self.peek_token == t
     }
     fn expect_peek(&mut self, token: Token) -> bool {
-        if self.peek_token_is(token) {
+        if self.peek_token_is(token.clone()) {
             self.next_token();
             true
         } else {
+            self.peek_error(token.clone());
             false
         }
     }
@@ -60,7 +95,7 @@ impl Parser {
         }
 
         if !self.expect_peek(Token::Assign) {
-            panic!("unexpected token during parsing");
+            return None;
         }
         let mut value: i64 = -1;
         self.next_token();
@@ -121,6 +156,7 @@ mod test {
         let mut parser = Parser::new(lexer);
 
         let program = parser.parse_program();
+        check_parser_errors(&parser);
         if program.statements.len() != 3 {
             panic!(
                 "program doesnt contain 3 statements, it contains {:?}",
@@ -136,5 +172,17 @@ mod test {
         };
         assert_eq!(output, program);
         println!("{:?}", program);
+    }
+
+    fn check_parser_errors(parser: &Parser) {
+        let errors = parser.errors();
+        if errors.len() == 0 {
+            return;
+        }
+        eprintln!("parser has {} errors", errors.len());
+        for error in errors.into_iter() {
+            eprintln!("{:?}", error);
+        }
+        panic!("Parser Error!");
     }
 }
