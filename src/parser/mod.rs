@@ -216,6 +216,21 @@ mod test {
         println!("{:?}", program);
     }
 
+    #[test]
+    fn test_string() {
+        let program = Program {
+            statements: vec![
+                Stmt::Let(Ident(String::from("myVar")), Expr::IntLiteral(5)),
+                Stmt::Let(Ident(String::from("myVar")), Expr::IntLiteral(10)),
+            ],
+        };
+        assert_eq!(
+            "let myVar = 5;
+let myVar = 10;
+",
+            program.to_string()
+        );
+    }
     fn check_parser_errors(parser: &Parser) {
         let errors = parser.errors();
         if errors.len() == 0 {
