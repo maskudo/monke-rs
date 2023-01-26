@@ -5,6 +5,7 @@ use token::Token;
 use token::Token::*;
 use token::LOOKUP_IDENT;
 
+#[derive(Debug, Clone)]
 pub struct Lexer {
     input: String,
     pos: usize,

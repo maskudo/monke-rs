@@ -10,9 +10,17 @@ pub enum Stmt {
     Return(Expr),
     Expr(Expr),
 }
-#[derive(PartialEq, PartialOrd, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Expr {
-    IntLiteral(i64),
+    Ident(Ident),
+    Literal(Literal),
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum Literal {
+    Int(i64),
+    String(String),
+    Bool(bool),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -29,8 +37,19 @@ impl Program {
 impl Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Expr::IntLiteral(i) => {
-                write!(f, "{i}")
+            Expr::Literal(literal) => match literal {
+                Literal::Int(i) => {
+                    write!(f, "{i}")
+                }
+                Literal::String(string) => {
+                    write!(f, "{string}")
+                }
+                Literal::Bool(bool) => {
+                    write!(f, "{bool}")
+                }
+            },
+            Expr::Ident(ident) => {
+                write!(f, "{ident}")
             }
         }
     }
@@ -54,8 +73,14 @@ impl Display for Stmt {
 impl Display for Program {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for stmt in self.statements.iter() {
-            write!(f, "{stmt}\n");
+            write!(f, "{stmt}\n")?
         }
-        write!(f, "")
+        Ok(())
+    }
+}
+
+impl Display for Ident {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }

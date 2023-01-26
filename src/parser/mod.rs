@@ -1,6 +1,6 @@
 #![allow(dead_code, unused_variables)]
 pub mod ast;
-use self::ast::{Ident, Program, Stmt};
+use self::ast::{Ident, Literal, Program, Stmt};
 
 use super::lexer::token::Token;
 use super::lexer::Lexer;
@@ -107,7 +107,10 @@ impl Parser {
             self.next_token();
         }
 
-        Some(Stmt::Let(Ident(name), ast::Expr::IntLiteral(value)))
+        Some(Stmt::Let(
+            Ident(name),
+            ast::Expr::Literal(Literal::Int(value)),
+        ))
     }
 
     fn parse_return_stmt(&mut self) -> Option<Stmt> {
@@ -121,7 +124,7 @@ impl Parser {
             self.next_token();
         }
 
-        Some(Stmt::Return(ast::Expr::IntLiteral(value)))
+        Some(Stmt::Return(ast::Expr::Literal(Literal::Int(value))))
     }
 
     fn parse_expr_stmt(&self) -> Option<Stmt> {
@@ -175,9 +178,18 @@ mod test {
         }
         let output = Program {
             statements: vec![
-                Stmt::Let(Ident(String::from("x")), Expr::IntLiteral(5)),
-                Stmt::Let(Ident(String::from("y")), Expr::IntLiteral(10)),
-                Stmt::Let(Ident(String::from("foobar")), Expr::IntLiteral(838383)),
+                Stmt::Let(
+                    Ident(String::from("x")),
+                    Expr::Literal(crate::parser::ast::Literal::Int(5)),
+                ),
+                Stmt::Let(
+                    Ident(String::from("y")),
+                    Expr::Literal(crate::parser::ast::Literal::Int(10)),
+                ),
+                Stmt::Let(
+                    Ident(String::from("foobar")),
+                    Expr::Literal(crate::parser::ast::Literal::Int(838383)),
+                ),
             ],
         };
         assert_eq!(output, program);
@@ -207,9 +219,9 @@ mod test {
         }
         let output = Program {
             statements: vec![
-                Stmt::Return(Expr::IntLiteral(5)),
-                Stmt::Return(Expr::IntLiteral(10)),
-                Stmt::Return(Expr::IntLiteral(993322)),
+                Stmt::Return(Expr::Literal(crate::parser::ast::Literal::Int(5))),
+                Stmt::Return(Expr::Literal(crate::parser::ast::Literal::Int(10))),
+                Stmt::Return(Expr::Literal(crate::parser::ast::Literal::Int(993322))),
             ],
         };
         assert_eq!(output, program);
@@ -220,8 +232,14 @@ mod test {
     fn test_string() {
         let program = Program {
             statements: vec![
-                Stmt::Let(Ident(String::from("myVar")), Expr::IntLiteral(5)),
-                Stmt::Let(Ident(String::from("myVar")), Expr::IntLiteral(10)),
+                Stmt::Let(
+                    Ident(String::from("myVar")),
+                    Expr::Literal(crate::parser::ast::Literal::Int(5)),
+                ),
+                Stmt::Let(
+                    Ident(String::from("myVar")),
+                    Expr::Literal(crate::parser::ast::Literal::Int(10)),
+                ),
             ],
         };
         assert_eq!(
