@@ -8,7 +8,7 @@ pub struct Ident(pub String);
 pub enum Stmt {
     Let(Ident, Expr),
     Return(Expr),
-    Expr(Expr),
+    ExprStmt(Expr),
 }
 #[derive(PartialEq, Debug, Clone)]
 pub enum Expr {
@@ -32,6 +32,17 @@ impl Program {
     pub fn token_literal(&mut self) -> String {
         todo!()
     }
+}
+
+#[derive(Debug, PartialEq, PartialOrd, Clone, Copy)]
+pub enum Precendence {
+    LOWEST,
+    EQUALS,      //==
+    LESSGREATER, // > or <
+    SUM,         // +
+    PRODUCT,     //*
+    PREFIX,      // -x or !x
+    CALL,        //myFunc(x)
 }
 
 impl Display for Expr {
@@ -63,7 +74,7 @@ impl Display for Stmt {
             Stmt::Return(expr) => {
                 write!(f, "return = {expr};")
             }
-            Stmt::Expr(expr) => {
+            Stmt::ExprStmt(expr) => {
                 write!(f, "{expr}")
             }
         }

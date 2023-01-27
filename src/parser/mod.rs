@@ -1,6 +1,6 @@
 #![allow(dead_code, unused_variables)]
 pub mod ast;
-use self::ast::{Ident, Literal, Program, Stmt};
+use self::ast::{Expr, Ident, Literal, Precendence, Program, Stmt};
 
 use super::lexer::token::Token;
 use super::lexer::Lexer;
@@ -84,9 +84,38 @@ impl Parser {
         match self.cur_token {
             Token::Let => self.parse_let_stmt(),
             Token::Return => self.parse_return_stmt(),
+            _ => self.parse_expression_statement(),
+        }
+    }
+
+    fn parse_expression_statement(&mut self) -> Option<Stmt> {
+        match self.parse_expression(Precendence::LOWEST) {
+            Some(expr) => {
+                if self.peek_token_is(Token::SemiColon) {
+                    self.next_token()
+                }
+                Some(Stmt::ExprStmt(expr))
+            }
+            None => None,
+        }
+    }
+
+    fn parse_expression(&mut self, precedence: Precendence) -> Option<Expr> {
+        let left = match self.cur_token {
+            Token::Ident(_) => self.parse_ident_expr(),
+            _ => None,
+        };
+
+        left
+    }
+
+    fn parse_ident_expr(&mut self) -> Option<Expr> {
+        match self.cur_token {
+            Token::Ident(ref mut ident) => Some(Expr::Ident(Ident(ident.clone()))),
             _ => None,
         }
     }
+
     fn parse_let_stmt(&mut self) -> Option<Stmt> {
         self.next_token();
         let mut name: String = String::from("");
@@ -249,6 +278,23 @@ let myVar = 10;
             program.to_string()
         );
     }
+
+    #[test]
+    fn test_identifier_expression() {
+        let input = String::from("foobar;");
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+        check_parser_errors(&parser);
+
+        if program.statements.len() != 1 {
+            panic!("not enough statements, got {:?}", program.statements.len())
+        }
+        let output = Stmt::ExprStmt(Expr::Ident(Ident(String::from("foobar"))));
+        assert_eq!(program.statements[0], output);
+    }
+
     fn check_parser_errors(parser: &Parser) {
         let errors = parser.errors();
         if errors.len() == 0 {
