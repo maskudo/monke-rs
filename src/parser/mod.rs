@@ -103,6 +103,8 @@ impl Parser {
     fn parse_expression(&mut self, precedence: Precendence) -> Option<Expr> {
         let left = match self.cur_token {
             Token::Ident(_) => self.parse_ident_expr(),
+            Token::IntLiteral(_) => self.parse_int_literal_expr(),
+            Token::Plus | Token::Minus | Token::Not => self.parse_prefix_expr(),
             _ => None,
         };
 
@@ -113,6 +115,27 @@ impl Parser {
         match self.cur_token {
             Token::Ident(ref mut ident) => Some(Expr::Ident(Ident(ident.clone()))),
             _ => None,
+        }
+    }
+
+    fn parse_int_literal_expr(&mut self) -> Option<Expr> {
+        match self.cur_token {
+            Token::IntLiteral(int) => Some(Expr::Literal(Literal::Int(int))),
+            _ => None,
+        }
+    }
+
+    fn parse_prefix_expr(&mut self) -> Option<Expr> {
+        let prefix = match self.cur_token {
+            Token::Not => ast::Prefix::Not,
+            Token::Minus => ast::Prefix::Minus,
+            Token::Plus => ast::Prefix::Plus,
+            _ => return None,
+        };
+        self.next_token();
+        match self.parse_expression(Precendence::PREFIX) {
+            Some(expr) => Some(Expr::Prefix(prefix, Box::new(expr))),
+            None => None,
         }
     }
 
@@ -156,10 +179,6 @@ impl Parser {
         Some(Stmt::Return(ast::Expr::Literal(Literal::Int(value))))
     }
 
-    fn parse_expr_stmt(&self) -> Option<Stmt> {
-        unimplemented!();
-    }
-
     fn parse_program(&mut self) -> Program {
         let mut program = Program { statements: vec![] };
         while self.cur_token != Token::EOF {
@@ -180,7 +199,7 @@ mod test {
     use crate::lexer::Lexer;
 
     use super::{
-        ast::{Expr, Ident, Program, Stmt},
+        ast::{Expr, Ident, Literal, Prefix, Program, Stmt},
         Parser,
     };
 
@@ -293,6 +312,58 @@ let myVar = 10;
         }
         let output = Stmt::ExprStmt(Expr::Ident(Ident(String::from("foobar"))));
         assert_eq!(program.statements[0], output);
+    }
+
+    #[test]
+    fn test_integer_literal_expression() {
+        let input = String::from("5;");
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+        check_parser_errors(&parser);
+
+        if program.statements.len() != 1 {
+            panic!("not enough statements, got {:?}", program.statements.len())
+        }
+        let output = Stmt::ExprStmt(Expr::Literal(crate::parser::ast::Literal::Int(5)));
+        assert_eq!(program.statements[0], output);
+    }
+
+    #[test]
+    fn test_prefix_expr() {
+        let inputs = vec![
+            (
+                String::from("!5;"),
+                Stmt::ExprStmt(Expr::Prefix(
+                    Prefix::Not,
+                    Box::new(Expr::Literal(Literal::Int(5))),
+                )),
+            ),
+            (
+                String::from("-15;"),
+                Stmt::ExprStmt(Expr::Prefix(
+                    Prefix::Minus,
+                    Box::new(Expr::Literal(Literal::Int(15))),
+                )),
+            ),
+            (
+                String::from("+15;"),
+                Stmt::ExprStmt(Expr::Prefix(
+                    Prefix::Plus,
+                    Box::new(Expr::Literal(Literal::Int(15))),
+                )),
+            ),
+        ];
+        for (input, expected) in inputs {
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer);
+
+            let program = parser.parse_program();
+            check_parser_errors(&parser);
+
+            assert_eq!(program.statements[0], expected);
+        }
     }
 
     fn check_parser_errors(parser: &Parser) {

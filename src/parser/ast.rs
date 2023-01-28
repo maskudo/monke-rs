@@ -14,6 +14,14 @@ pub enum Stmt {
 pub enum Expr {
     Ident(Ident),
     Literal(Literal),
+    Prefix(Prefix, Box<Expr>),
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum Prefix {
+    Plus,
+    Minus,
+    Not,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -61,6 +69,9 @@ impl Display for Expr {
             },
             Expr::Ident(ident) => {
                 write!(f, "{ident}")
+            }
+            _ => {
+                write!(f, "{:?}", self)
             }
         }
     }
