@@ -15,13 +15,28 @@ pub enum Expr {
     Ident(Ident),
     Literal(Literal),
     Prefix(Prefix, Box<Expr>),
+    Infix(Box<Expr>, Infix, Box<Expr>),
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub enum Prefix {
     Plus,
     Minus,
     Not,
+}
+
+#[derive(PartialEq, Debug, Clone, Copy)]
+pub enum Infix {
+    Plus,
+    Minus,
+    Divide,
+    Multiply,
+    Equal,
+    NotEqual,
+    GreaterEqual,
+    GreaterThan,
+    LessEqual,
+    LessThan,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -43,7 +58,7 @@ impl Program {
 }
 
 #[derive(Debug, PartialEq, PartialOrd, Clone, Copy)]
-pub enum Precendence {
+pub enum Precedence {
     LOWEST,
     EQUALS,      //==
     LESSGREATER, // > or <

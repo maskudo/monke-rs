@@ -1,6 +1,6 @@
 #![allow(dead_code, unused_variables)]
 pub mod ast;
-use self::ast::{Expr, Ident, Literal, Precendence, Program, Stmt};
+use self::ast::{Expr, Ident, Infix, Literal, Precedence, Program, Stmt};
 
 use super::lexer::token::Token;
 use super::lexer::Lexer;
@@ -80,6 +80,26 @@ impl Parser {
         }
     }
 
+    fn peek_precedence(&self) -> Precedence {
+        Parser::get_precedence(&self.peek_token)
+    }
+    fn get_precedence(token: &Token) -> Precedence {
+        match token {
+            Token::Equal | Token::NotEqual | Token::LessThanEqual | Token::GreaterThanEqual => {
+                Precedence::EQUALS
+            }
+            Token::LessThan | Token::GreaterThan => Precedence::LESSGREATER,
+            Token::Plus => Precedence::SUM,
+            Token::Divide | Token::Multiply => Precedence::PRODUCT,
+            Token::Minus | Token::Not => Precedence::PREFIX,
+            _ => Precedence::LOWEST,
+        }
+    }
+
+    fn cur_precedence(&self) -> Precedence {
+        Parser::get_precedence(&self.cur_token)
+    }
+
     fn parse_statement(&mut self) -> Option<Stmt> {
         match self.cur_token {
             Token::Let => self.parse_let_stmt(),
@@ -89,26 +109,72 @@ impl Parser {
     }
 
     fn parse_expression_statement(&mut self) -> Option<Stmt> {
-        match self.parse_expression(Precendence::LOWEST) {
+        match self.parse_expression(Precedence::LOWEST) {
             Some(expr) => {
                 if self.peek_token_is(Token::SemiColon) {
                     self.next_token()
                 }
+                println!("{:?}", expr);
                 Some(Stmt::ExprStmt(expr))
             }
             None => None,
         }
     }
 
-    fn parse_expression(&mut self, precedence: Precendence) -> Option<Expr> {
-        let left = match self.cur_token {
+    fn parse_expression(&mut self, precedence: Precedence) -> Option<Expr> {
+        let mut left = match self.cur_token {
             Token::Ident(_) => self.parse_ident_expr(),
             Token::IntLiteral(_) => self.parse_int_literal_expr(),
             Token::Plus | Token::Minus | Token::Not => self.parse_prefix_expr(),
             _ => None,
         };
 
+        //parsing Infix
+        while !self.peek_token_is(Token::SemiColon) && precedence < self.peek_precedence() {
+            match self.peek_token {
+                Token::Plus
+                | Token::Minus
+                | Token::Multiply
+                | Token::Divide
+                | Token::Equal
+                | Token::NotEqual
+                | Token::LessThan
+                | Token::LessThanEqual
+                | Token::GreaterThan
+                | Token::GreaterThanEqual => {
+                    self.next_token();
+                    left = self.parse_infix_expression(left.unwrap());
+                }
+                _ => return left,
+            }
+        }
+
         left
+    }
+
+    fn parse_infix_expression(&mut self, left: Expr) -> Option<Expr> {
+        let infix = match self.cur_token {
+            Token::Plus => Infix::Plus,
+            Token::Minus => Infix::Minus,
+            Token::Divide => Infix::Divide,
+            Token::Multiply => Infix::Multiply,
+            Token::Equal => Infix::Equal,
+            Token::NotEqual => Infix::NotEqual,
+            Token::LessThan => Infix::LessThan,
+            Token::LessThanEqual => Infix::LessEqual,
+            Token::GreaterThan => Infix::GreaterThan,
+            Token::GreaterThanEqual => Infix::GreaterEqual,
+            _ => return None,
+        };
+
+        let precedence = self.cur_precedence();
+        self.next_token();
+
+        // self.parse_expression(precedence).and_then(|expr| Expr::Infix(Box::new(left), infix, Box::new(expr)))
+        match self.parse_expression(precedence) {
+            Some(expr) => Some(Expr::Infix(Box::new(left), infix, Box::new(expr))),
+            None => None,
+        }
     }
 
     fn parse_ident_expr(&mut self) -> Option<Expr> {
@@ -133,7 +199,7 @@ impl Parser {
             _ => return None,
         };
         self.next_token();
-        match self.parse_expression(Precendence::PREFIX) {
+        match self.parse_expression(Precedence::PREFIX) {
             Some(expr) => Some(Expr::Prefix(prefix, Box::new(expr))),
             None => None,
         }
@@ -199,7 +265,7 @@ mod test {
     use crate::lexer::Lexer;
 
     use super::{
-        ast::{Expr, Ident, Literal, Prefix, Program, Stmt},
+        ast::{Expr, Ident, Infix, Literal, Prefix, Program, Stmt},
         Parser,
     };
 
@@ -241,7 +307,6 @@ mod test {
             ],
         };
         assert_eq!(output, program);
-        println!("{:?}", program);
     }
 
     #[test]
@@ -352,6 +417,101 @@ let myVar = 10;
                 Stmt::ExprStmt(Expr::Prefix(
                     Prefix::Plus,
                     Box::new(Expr::Literal(Literal::Int(15))),
+                )),
+            ),
+        ];
+        for (input, expected) in inputs {
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer);
+
+            let program = parser.parse_program();
+            check_parser_errors(&parser);
+
+            assert_eq!(program.statements[0], expected);
+        }
+    }
+
+    #[test]
+    fn test_infix_expr() {
+        let inputs = vec![
+            (
+                String::from("5 + 5;"),
+                Stmt::ExprStmt(Expr::Infix(
+                    Box::new(Expr::Literal(Literal::Int(5))),
+                    Infix::Plus,
+                    Box::new(Expr::Literal(Literal::Int(5))),
+                )),
+            ),
+            (
+                String::from("5 - 5;"),
+                Stmt::ExprStmt(Expr::Infix(
+                    Box::new(Expr::Literal(Literal::Int(5))),
+                    Infix::Minus,
+                    Box::new(Expr::Literal(Literal::Int(5))),
+                )),
+            ),
+            (
+                String::from("5 * 5;"),
+                Stmt::ExprStmt(Expr::Infix(
+                    Box::new(Expr::Literal(Literal::Int(5))),
+                    Infix::Multiply,
+                    Box::new(Expr::Literal(Literal::Int(5))),
+                )),
+            ),
+            (
+                String::from("5 / 5;"),
+                Stmt::ExprStmt(Expr::Infix(
+                    Box::new(Expr::Literal(Literal::Int(5))),
+                    Infix::Divide,
+                    Box::new(Expr::Literal(Literal::Int(5))),
+                )),
+            ),
+            (
+                String::from("5 > 5;"),
+                Stmt::ExprStmt(Expr::Infix(
+                    Box::new(Expr::Literal(Literal::Int(5))),
+                    Infix::GreaterThan,
+                    Box::new(Expr::Literal(Literal::Int(5))),
+                )),
+            ),
+            (
+                String::from("5 < 5;"),
+                Stmt::ExprStmt(Expr::Infix(
+                    Box::new(Expr::Literal(Literal::Int(5))),
+                    Infix::LessThan,
+                    Box::new(Expr::Literal(Literal::Int(5))),
+                )),
+            ),
+            (
+                String::from("5 != 5;"),
+                Stmt::ExprStmt(Expr::Infix(
+                    Box::new(Expr::Literal(Literal::Int(5))),
+                    Infix::NotEqual,
+                    Box::new(Expr::Literal(Literal::Int(5))),
+                )),
+            ),
+            (
+                String::from("5 == 5;"),
+                Stmt::ExprStmt(Expr::Infix(
+                    Box::new(Expr::Literal(Literal::Int(5))),
+                    Infix::Equal,
+                    Box::new(Expr::Literal(Literal::Int(5))),
+                )),
+            ),
+            (
+                String::from("5 >= 5;"),
+                Stmt::ExprStmt(Expr::Infix(
+                    Box::new(Expr::Literal(Literal::Int(5))),
+                    Infix::GreaterEqual,
+                    Box::new(Expr::Literal(Literal::Int(5))),
+                )),
+            ),
+            (
+                String::from("5 <= 5;"),
+                Stmt::ExprStmt(Expr::Infix(
+                    Box::new(Expr::Literal(Literal::Int(5))),
+                    Infix::LessEqual,
+                    Box::new(Expr::Literal(Literal::Int(5))),
                 )),
             ),
         ];
