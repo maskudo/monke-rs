@@ -114,7 +114,6 @@ impl Parser {
                 if self.peek_token_is(Token::SemiColon) {
                     self.next_token()
                 }
-                println!("{:?}", expr);
                 Some(Stmt::ExprStmt(expr))
             }
             None => None,
@@ -128,6 +127,7 @@ impl Parser {
             Token::BoolLiteral(_) => self.parse_boolean(),
             Token::StringLiteral(_) => self.parse_string_literal_expr(),
             Token::Plus | Token::Minus | Token::Not => self.parse_prefix_expr(),
+            Token::LParen => self.parse_grouped_expr(),
             _ => None,
         };
 
@@ -176,6 +176,15 @@ impl Parser {
             .and_then(|expr| Some(Expr::Infix(Box::new(left), infix, Box::new(expr))))
     }
 
+    fn parse_grouped_expr(&mut self) -> Option<Expr> {
+        self.next_token();
+        let expr = self.parse_expression(Precedence::LOWEST);
+        if !self.expect_peek(Token::RParen) {
+            None
+        } else {
+            expr
+        }
+    }
     fn parse_ident_expr(&mut self) -> Option<Expr> {
         match self.cur_token {
             Token::Ident(ref mut ident) => Some(Expr::Ident(Ident(ident.clone()))),
@@ -448,6 +457,20 @@ let myVar = 10;
                     Box::new(Expr::Literal(Literal::Int(15))),
                 )),
             ),
+            (
+                String::from("!true"),
+                Stmt::ExprStmt(Expr::Prefix(
+                    Prefix::Not,
+                    Box::new(Expr::Literal(Literal::Bool(true))),
+                )),
+            ),
+            (
+                String::from("!false"),
+                Stmt::ExprStmt(Expr::Prefix(
+                    Prefix::Not,
+                    Box::new(Expr::Literal(Literal::Bool(false))),
+                )),
+            ),
         ];
         for (input, expected) in inputs {
             let lexer = Lexer::new(input);
@@ -456,6 +479,48 @@ let myVar = 10;
             let program = parser.parse_program();
             check_parser_errors(&parser);
 
+            assert_eq!(program.statements[0], expected);
+        }
+    }
+
+    #[test]
+    fn test_operator_precedence_parsing() {
+        let inputs = vec![
+            (
+                String::from("3 < 5 == true;"),
+                Stmt::ExprStmt(Expr::Infix(
+                    Box::new(Expr::Infix(
+                        Box::new(Expr::Literal(Literal::Int(3))),
+                        Infix::LessThan,
+                        Box::new(Expr::Literal(Literal::Int(5))),
+                    )),
+                    Infix::Equal,
+                    Box::new(Expr::Literal(Literal::Bool(true))),
+                )),
+            ),
+            (
+                String::from("1 + (2 + 3) + 4;"),
+                Stmt::ExprStmt(Expr::Infix(
+                    Box::new(Expr::Infix(
+                        Box::new(Expr::Literal(Literal::Int(1))),
+                        Infix::Plus,
+                        Box::new(Expr::Infix(
+                            Box::new(Expr::Literal(Literal::Int(2))),
+                            Infix::Plus,
+                            Box::new(Expr::Literal(Literal::Int(3))),
+                        )),
+                    )),
+                    Infix::Plus,
+                    Box::new(Expr::Literal(Literal::Int(4))),
+                )),
+            ),
+        ];
+        for (input, expected) in inputs {
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer);
+
+            let program = parser.parse_program();
+            check_parser_errors(&parser);
             assert_eq!(program.statements[0], expected);
         }
     }
