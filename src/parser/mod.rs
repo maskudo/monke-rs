@@ -125,6 +125,8 @@ impl Parser {
         let mut left = match self.cur_token {
             Token::Ident(_) => self.parse_ident_expr(),
             Token::IntLiteral(_) => self.parse_int_literal_expr(),
+            Token::BoolLiteral(_) => self.parse_boolean(),
+            Token::StringLiteral(_) => self.parse_string_literal_expr(),
             Token::Plus | Token::Minus | Token::Not => self.parse_prefix_expr(),
             _ => None,
         };
@@ -170,16 +172,27 @@ impl Parser {
         let precedence = self.cur_precedence();
         self.next_token();
 
-        // self.parse_expression(precedence).and_then(|expr| Expr::Infix(Box::new(left), infix, Box::new(expr)))
-        match self.parse_expression(precedence) {
-            Some(expr) => Some(Expr::Infix(Box::new(left), infix, Box::new(expr))),
-            None => None,
-        }
+        self.parse_expression(precedence)
+            .and_then(|expr| Some(Expr::Infix(Box::new(left), infix, Box::new(expr))))
     }
 
     fn parse_ident_expr(&mut self) -> Option<Expr> {
         match self.cur_token {
             Token::Ident(ref mut ident) => Some(Expr::Ident(Ident(ident.clone()))),
+            _ => None,
+        }
+    }
+
+    fn parse_boolean(&mut self) -> Option<Expr> {
+        match self.cur_token {
+            Token::BoolLiteral(bool) => Some(Expr::Literal(Literal::Bool(bool))),
+            _ => None,
+        }
+    }
+
+    fn parse_string_literal_expr(&mut self) -> Option<Expr> {
+        match self.cur_token {
+            Token::StringLiteral(ref mut s) => Some(Expr::Literal(Literal::String(s.clone()))),
             _ => None,
         }
     }
@@ -364,6 +377,22 @@ let myVar = 10;
     }
 
     #[test]
+    fn test_bool_expression() {
+        let input = String::from("true;");
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+        check_parser_errors(&parser);
+
+        if program.statements.len() != 1 {
+            panic!("not enough statements, got {:?}", program.statements.len())
+        }
+        let output = Stmt::ExprStmt(Expr::Literal(Literal::Bool(true)));
+        assert_eq!(program.statements[0], output);
+    }
+    #[test]
+
     fn test_identifier_expression() {
         let input = String::from("foobar;");
         let lexer = Lexer::new(input);
