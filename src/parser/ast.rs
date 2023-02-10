@@ -10,12 +10,20 @@ pub enum Stmt {
     Return(Expr),
     ExprStmt(Expr),
 }
+
+pub type BlockStmt = Vec<Stmt>;
+
 #[derive(PartialEq, Debug, Clone)]
 pub enum Expr {
     Ident(Ident),
     Literal(Literal),
     Prefix(Prefix, Box<Expr>),
     Infix(Box<Expr>, Infix, Box<Expr>),
+    If {
+        condition: Box<Expr>,
+        consequence: BlockStmt,
+        alternative: Option<BlockStmt>,
+    },
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]

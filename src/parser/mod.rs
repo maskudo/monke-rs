@@ -128,6 +128,7 @@ impl Parser {
             Token::StringLiteral(_) => self.parse_string_literal_expr(),
             Token::Plus | Token::Minus | Token::Not => self.parse_prefix_expr(),
             Token::LParen => self.parse_grouped_expr(),
+            Token::If => self.parse_if_expr(),
             _ => None,
         };
 
@@ -174,6 +175,49 @@ impl Parser {
 
         self.parse_expression(precedence)
             .and_then(|expr| Some(Expr::Infix(Box::new(left), infix, Box::new(expr))))
+    }
+
+    fn parse_if_expr(&mut self) -> Option<Expr> {
+        if !self.expect_peek(Token::LParen) {
+            return None;
+        }
+        self.next_token();
+        let condition = self.parse_expression(Precedence::LOWEST)?;
+        if !self.expect_peek(Token::RParen) {
+            return None;
+        }
+        if !self.expect_peek(Token::LBrace) {
+            return None;
+        }
+        let consequence = self.parse_block_stmt();
+        let mut alternative = None;
+
+        if self.peek_token_is(Token::Else) {
+            self.next_token();
+            if !self.expect_peek(Token::LBrace) {
+                return None;
+            }
+            alternative = Some(self.parse_block_stmt());
+        }
+        Some(Expr::If {
+            condition: Box::new(condition),
+            consequence,
+            alternative,
+        })
+    }
+
+    fn parse_block_stmt(&mut self) -> Vec<Stmt> {
+        let mut statements: Vec<Stmt> = vec![];
+        self.next_token();
+
+        while !self.cur_token_is(Token::RBrace) && !self.cur_token_is(Token::EOF) {
+            match self.parse_statement() {
+                Some(stmt) => statements.push(stmt),
+                None => {}
+            }
+            self.next_token();
+        }
+        statements
     }
 
     fn parse_grouped_expr(&mut self) -> Option<Expr> {
@@ -618,6 +662,46 @@ let myVar = 10;
 
             assert_eq!(program.statements[0], expected);
         }
+    }
+
+    #[test]
+    fn test_if_expr() {
+        let input = String::from("if (x < y) { x }");
+        let output = Stmt::ExprStmt(Expr::If {
+            condition: Box::new(Expr::Infix(
+                Box::new(Expr::Ident(Ident(String::from("x")))),
+                Infix::LessThan,
+                Box::new(Expr::Ident(Ident(String::from("y")))),
+            )),
+            consequence: vec![Stmt::ExprStmt(Expr::Ident(Ident(String::from("x"))))],
+            alternative: None,
+        });
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+        check_parser_errors(&parser);
+        assert_eq!(output, program.statements[0]);
+    }
+
+    #[test]
+    fn test_if_else_expr() {
+        let input = String::from("if (x < y) { x } else { y }");
+        let output = Stmt::ExprStmt(Expr::If {
+            condition: Box::new(Expr::Infix(
+                Box::new(Expr::Ident(Ident(String::from("x")))),
+                Infix::LessThan,
+                Box::new(Expr::Ident(Ident(String::from("y")))),
+            )),
+            consequence: vec![Stmt::ExprStmt(Expr::Ident(Ident(String::from("x"))))],
+            alternative: Some(vec![Stmt::ExprStmt(Expr::Ident(Ident(String::from("y"))))]),
+        });
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+        check_parser_errors(&parser);
+        assert_eq!(output, program.statements[0]);
     }
 
     fn check_parser_errors(parser: &Parser) {
