@@ -129,6 +129,7 @@ impl Parser {
             Token::Plus | Token::Minus | Token::Not => self.parse_prefix_expr(),
             Token::LParen => self.parse_grouped_expr(),
             Token::If => self.parse_if_expr(),
+            Token::Function => self.parse_function_expr(),
             _ => None,
         };
 
@@ -175,6 +176,56 @@ impl Parser {
 
         self.parse_expression(precedence)
             .and_then(|expr| Some(Expr::Infix(Box::new(left), infix, Box::new(expr))))
+    }
+
+    fn parse_function_expr(&mut self) -> Option<Expr> {
+        if !self.expect_peek(Token::LParen) {
+            return None;
+        }
+        let parameters = self.parse_function_params();
+
+        if !self.expect_peek(Token::LBrace) {
+            return None;
+        }
+
+        let body = self.parse_block_stmt();
+        Some(Expr::Function { parameters, body })
+    }
+
+    fn parse_function_params(&mut self) -> Option<Vec<Ident>> {
+        let mut identifiers: Vec<Ident> = vec![];
+        if self.peek_token_is(Token::RParen) {
+            self.next_token();
+            return None;
+        }
+        self.next_token();
+
+        match self.parse_ident() {
+            Some(ident) => identifiers.push(ident),
+            None => return None,
+        }
+
+        while self.peek_token_is(Token::Comma) {
+            self.next_token();
+            self.next_token();
+            match self.parse_ident() {
+                Some(ident) => identifiers.push(ident),
+                None => return None,
+            };
+        }
+
+        if !self.expect_peek(Token::RParen) {
+            return None;
+        }
+
+        Some(identifiers)
+    }
+
+    fn parse_ident(&mut self) -> Option<Ident> {
+        match self.cur_token {
+            Token::Ident(ref mut ident) => Some(Ident(ident.clone())),
+            _ => None,
+        }
     }
 
     fn parse_if_expr(&mut self) -> Option<Expr> {
@@ -702,6 +753,65 @@ let myVar = 10;
         let program = parser.parse_program();
         check_parser_errors(&parser);
         assert_eq!(output, program.statements[0]);
+    }
+
+    #[test]
+    fn test_function_literal_parsing() {
+        let input = String::from("fn(x,y) {{ x + y; }}");
+        let output = Stmt::ExprStmt(Expr::Function {
+            parameters: Some(vec![Ident(String::from("x")), Ident(String::from("y"))]),
+            body: vec![Stmt::ExprStmt(Expr::Infix(
+                Box::new(Expr::Ident(Ident(String::from("x")))),
+                Infix::Plus,
+                Box::new(Expr::Ident(Ident(String::from("y")))),
+            ))],
+        });
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+        check_parser_errors(&parser);
+        assert_eq!(output, program.statements[0]);
+    }
+
+    #[test]
+    fn test_function_parameters_parsing() {
+        let inputs = vec![
+            (
+                String::from("fn() {{}};"),
+                Stmt::ExprStmt(Expr::Function {
+                    parameters: None,
+                    body: vec![],
+                }),
+            ),
+            (
+                String::from("fn(x) {{}};"),
+                Stmt::ExprStmt(Expr::Function {
+                    parameters: Some(vec![Ident(String::from("x"))]),
+                    body: vec![],
+                }),
+            ),
+            (
+                String::from("fn(x,y,z) {};"),
+                Stmt::ExprStmt(Expr::Function {
+                    parameters: Some(vec![
+                        Ident(String::from("x")),
+                        Ident(String::from("y")),
+                        Ident(String::from("z")),
+                    ]),
+                    body: vec![],
+                }),
+            ),
+        ];
+        for (input, expected) in inputs {
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer);
+
+            let program = parser.parse_program();
+            check_parser_errors(&parser);
+
+            assert_eq!(program.statements[0], expected);
+        }
     }
 
     fn check_parser_errors(parser: &Parser) {

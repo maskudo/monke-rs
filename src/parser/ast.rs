@@ -24,6 +24,10 @@ pub enum Expr {
         consequence: BlockStmt,
         alternative: Option<BlockStmt>,
     },
+    Function {
+        parameters: Option<Vec<Ident>>,
+        body: BlockStmt,
+    },
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]
