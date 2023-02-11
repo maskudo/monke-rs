@@ -92,6 +92,7 @@ impl Parser {
             Token::Plus => Precedence::SUM,
             Token::Divide | Token::Multiply => Precedence::PRODUCT,
             Token::Minus | Token::Not => Precedence::PREFIX,
+            Token::LParen => Precedence::CALL,
             _ => Precedence::LOWEST,
         }
     }
@@ -148,6 +149,10 @@ impl Parser {
                 | Token::GreaterThanEqual => {
                     self.next_token();
                     left = self.parse_infix_expression(left.unwrap());
+                }
+                Token::LParen => {
+                    self.next_token();
+                    left = self.parse_call_expr(left.unwrap());
                 }
                 _ => return left,
             }
@@ -222,6 +227,47 @@ impl Parser {
         }
 
         Some(identifiers)
+    }
+
+    fn parse_call_expr(&mut self, function: Expr) -> Option<Expr> {
+        let arguments = match self.parse_call_args() {
+            Some(args) => args,
+            None => return None,
+        };
+        Some(Expr::Call {
+            function: Box::new(function),
+            arguments,
+        })
+    }
+
+    fn parse_call_args(&mut self) -> Option<Vec<Expr>> {
+        let mut args = vec![];
+
+        if self.peek_token_is(Token::RParen) {
+            self.next_token();
+            return Some(args);
+        }
+
+        self.next_token();
+        match self.parse_expression(Precedence::LOWEST) {
+            Some(expr) => args.push(expr),
+            None => return None,
+        }
+
+        while self.peek_token_is(Token::Comma) {
+            self.next_token();
+            self.next_token();
+
+            match self.parse_expression(Precedence::LOWEST) {
+                Some(expr) => args.push(expr),
+                None => return None,
+            };
+        }
+
+        if !self.expect_peek(Token::RParen) {
+            return None;
+        }
+        Some(args)
     }
 
     fn parse_ident(&mut self) -> Option<Ident> {
@@ -597,6 +643,25 @@ let myVar = 10;
                 )),
             ),
             (
+                String::from("a + add(b * c) + d"),
+                Stmt::ExprStmt(Expr::Infix(
+                    Box::new(Expr::Infix(
+                        Box::new(Expr::Ident(Ident(String::from("a")))),
+                        Infix::Plus,
+                        Box::new(Expr::Call {
+                            function: Box::new(Expr::Ident(Ident(String::from("add")))),
+                            arguments: vec![Expr::Infix(
+                                Box::new(Expr::Ident(Ident(String::from("b")))),
+                                Infix::Multiply,
+                                Box::new(Expr::Ident(Ident(String::from("c")))),
+                            )],
+                        }),
+                    )),
+                    Infix::Plus,
+                    Box::new(Expr::Ident(Ident(String::from("d")))),
+                )),
+            ),
+            (
                 String::from("1 + (2 + 3) + 4;"),
                 Stmt::ExprStmt(Expr::Infix(
                     Box::new(Expr::Infix(
@@ -816,6 +881,33 @@ let myVar = 10;
             dbg!(&program.statements, &expected);
             assert_eq!(program.statements[0], expected);
         }
+    }
+
+    #[test]
+    fn test_call_expr_parsing() {
+        let input = String::from("add(1, 2 * 3, 4 + 5);");
+        let output = Stmt::ExprStmt(Expr::Call {
+            function: Box::new(Expr::Ident(Ident(String::from("add")))),
+            arguments: vec![
+                Expr::Literal(Literal::Int(1)),
+                Expr::Infix(
+                    Box::new(Expr::Literal(Literal::Int(2))),
+                    Infix::Multiply,
+                    Box::new(Expr::Literal(Literal::Int(3))),
+                ),
+                Expr::Infix(
+                    Box::new(Expr::Literal(Literal::Int(4))),
+                    Infix::Plus,
+                    Box::new(Expr::Literal(Literal::Int(5))),
+                ),
+            ],
+        });
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+        check_parser_errors(&parser);
+        assert_eq!(output, program.statements[0]);
     }
 
     fn check_parser_errors(parser: &Parser) {

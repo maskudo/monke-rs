@@ -28,6 +28,10 @@ pub enum Expr {
         parameters: Vec<Ident>,
         body: BlockStmt,
     },
+    Call {
+        function: Box<Expr>,
+        arguments: Vec<Expr>,
+    },
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]
