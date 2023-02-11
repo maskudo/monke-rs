@@ -25,7 +25,7 @@ pub enum Expr {
         alternative: Option<BlockStmt>,
     },
     Function {
-        parameters: Option<Vec<Ident>>,
+        parameters: Vec<Ident>,
         body: BlockStmt,
     },
 }

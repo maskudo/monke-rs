@@ -182,7 +182,10 @@ impl Parser {
         if !self.expect_peek(Token::LParen) {
             return None;
         }
-        let parameters = self.parse_function_params();
+        let parameters = match self.parse_function_params() {
+            Some(params) => params,
+            None => return None,
+        };
 
         if !self.expect_peek(Token::LBrace) {
             return None;
@@ -196,7 +199,7 @@ impl Parser {
         let mut identifiers: Vec<Ident> = vec![];
         if self.peek_token_is(Token::RParen) {
             self.next_token();
-            return None;
+            return Some(identifiers);
         }
         self.next_token();
 
@@ -759,7 +762,7 @@ let myVar = 10;
     fn test_function_literal_parsing() {
         let input = String::from("fn(x,y) {{ x + y; }}");
         let output = Stmt::ExprStmt(Expr::Function {
-            parameters: Some(vec![Ident(String::from("x")), Ident(String::from("y"))]),
+            parameters: vec![Ident(String::from("x")), Ident(String::from("y"))],
             body: vec![Stmt::ExprStmt(Expr::Infix(
                 Box::new(Expr::Ident(Ident(String::from("x")))),
                 Infix::Plus,
@@ -780,25 +783,25 @@ let myVar = 10;
             (
                 String::from("fn() {{}};"),
                 Stmt::ExprStmt(Expr::Function {
-                    parameters: None,
+                    parameters: vec![],
                     body: vec![],
                 }),
             ),
             (
                 String::from("fn(x) {{}};"),
                 Stmt::ExprStmt(Expr::Function {
-                    parameters: Some(vec![Ident(String::from("x"))]),
+                    parameters: vec![Ident(String::from("x"))],
                     body: vec![],
                 }),
             ),
             (
                 String::from("fn(x,y,z) {};"),
                 Stmt::ExprStmt(Expr::Function {
-                    parameters: Some(vec![
+                    parameters: vec![
                         Ident(String::from("x")),
                         Ident(String::from("y")),
                         Ident(String::from("z")),
-                    ]),
+                    ],
                     body: vec![],
                 }),
             ),
@@ -810,6 +813,7 @@ let myVar = 10;
             let program = parser.parse_program();
             check_parser_errors(&parser);
 
+            dbg!(&program.statements, &expected);
             assert_eq!(program.statements[0], expected);
         }
     }
