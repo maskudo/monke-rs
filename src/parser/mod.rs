@@ -372,43 +372,41 @@ impl Parser {
     }
 
     fn parse_let_stmt(&mut self) -> Option<Stmt> {
-        self.next_token();
-        let mut name: String = String::from("");
-        if let Token::Ident(ident) = self.cur_token.clone() {
-            name = ident;
-        }
+        match &self.peek_token {
+            Token::Ident(_) => self.next_token(),
+            _ => return None,
+        };
+
+        let name = match self.parse_ident() {
+            Some(name) => name,
+            None => return None,
+        };
 
         if !self.expect_peek(Token::Assign) {
             return None;
         }
-        let mut value: i64 = -1;
         self.next_token();
-        if let Token::IntLiteral(val) = self.cur_token {
-            value = val;
-        }
 
-        while !self.cur_token_is(Token::SemiColon) {
+        let expr = match self.parse_expression(Precedence::LOWEST) {
+            Some(expr) => expr,
+            None => return None,
+        };
+
+        if self.peek_token_is(Token::SemiColon) {
             self.next_token();
         }
-
-        Some(Stmt::Let(
-            Ident(name),
-            ast::Expr::Literal(Literal::Int(value)),
-        ))
+        Some(Stmt::Let(name, expr))
     }
 
     fn parse_return_stmt(&mut self) -> Option<Stmt> {
         self.next_token();
-        let mut value: i64 = 0;
-        if let Token::IntLiteral(val) = self.cur_token {
-            value = val;
-        }
+        let value = self.parse_expression(Precedence::LOWEST);
 
-        while !self.cur_token_is(Token::SemiColon) {
+        if self.peek_token_is(Token::SemiColon) {
             self.next_token();
         }
 
-        Some(Stmt::Return(ast::Expr::Literal(Literal::Int(value))))
+        value.and_then(|val| Some(Stmt::Return(val)))
     }
 
     fn parse_program(&mut self) -> Program {
