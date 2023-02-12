@@ -1,6 +1,8 @@
 #![allow(dead_code, unused_variables)]
 pub mod ast;
 use self::ast::{Expr, Ident, Infix, Literal, Precedence, Program, Stmt};
+use core::fmt;
+use std::fmt::Display;
 
 use super::lexer::token::Token;
 use super::lexer::Lexer;
@@ -22,10 +24,24 @@ impl ParseError {
     }
 }
 
+impl Display for ParseErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ParseErrorKind::UnexpectedToken => write!(f, "Unexpected Token"),
+        }
+    }
+}
+
+impl Display for ParseError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}: {}", self.kind, self.message)
+    }
+}
+
 pub type ParseErrors = Vec<ParseError>;
 
 #[derive(Clone, Debug)]
-struct Parser {
+pub struct Parser {
     lexer: Lexer,
     cur_token: Token,
     peek_token: Token,
@@ -45,7 +61,7 @@ impl Parser {
         p
     }
 
-    fn errors(&self) -> ParseErrors {
+    pub fn errors(&self) -> ParseErrors {
         self.errors.clone()
     }
 
@@ -85,13 +101,14 @@ impl Parser {
     }
     fn get_precedence(token: &Token) -> Precedence {
         match token {
-            Token::Equal | Token::NotEqual | Token::LessThanEqual | Token::GreaterThanEqual => {
-                Precedence::EQUALS
-            }
-            Token::LessThan | Token::GreaterThan => Precedence::LESSGREATER,
-            Token::Plus => Precedence::SUM,
+            Token::Equal | Token::NotEqual => Precedence::EQUALS,
+            Token::LessThan
+            | Token::GreaterThan
+            | Token::LessThanEqual
+            | Token::GreaterThanEqual => Precedence::LESSGREATER,
+            Token::Plus | Token::Minus => Precedence::SUM,
             Token::Divide | Token::Multiply => Precedence::PRODUCT,
-            Token::Minus | Token::Not => Precedence::PREFIX,
+            Token::Not => Precedence::PREFIX,
             Token::LParen => Precedence::CALL,
             _ => Precedence::LOWEST,
         }
@@ -409,7 +426,7 @@ impl Parser {
         value.and_then(|val| Some(Stmt::Return(val)))
     }
 
-    fn parse_program(&mut self) -> Program {
+    pub fn parse_program(&mut self) -> Program {
         let mut program = Program { statements: vec![] };
         while self.cur_token != Token::EOF {
             match self.parse_statement() {

@@ -84,6 +84,33 @@ pub enum Precedence {
     CALL,        //myFunc(x)
 }
 
+impl Display for Infix {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Infix::Plus => write!(f, "+"),
+            Infix::Minus => write!(f, "-"),
+            Infix::Divide => write!(f, "/"),
+            Infix::Multiply => write!(f, "*"),
+            Infix::Equal => write!(f, "=="),
+            Infix::NotEqual => write!(f, "!="),
+            Infix::GreaterThan => write!(f, ">"),
+            Infix::LessThan => write!(f, "<"),
+            Infix::GreaterEqual => write!(f, ">="),
+            Infix::LessEqual => write!(f, "<="),
+        }
+    }
+}
+
+impl Display for Prefix {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Prefix::Plus => write!(f, "+"),
+            Prefix::Minus => write!(f, "-"),
+            Prefix::Not => write!(f, "!"),
+        }
+    }
+}
+
 impl Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -101,9 +128,24 @@ impl Display for Expr {
             Expr::Ident(ident) => {
                 write!(f, "{ident}")
             }
+            Expr::Infix(left, sym, right) => {
+                write!(f, "({left} {sym} {right})")
+            }
+            Expr::Prefix(sym, right) => {
+                write!(f, "({sym}{right})")
+            }
             _ => {
                 write!(f, "{:?}", self)
             }
+        }
+    }
+}
+impl Display for Literal {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Literal::Int(i) => write!(f, "{i}"),
+            Literal::String(s) => write!(f, "{s}"),
+            Literal::Bool(b) => write!(f, "{b}"),
         }
     }
 }
