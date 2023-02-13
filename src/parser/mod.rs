@@ -204,10 +204,11 @@ impl Parser {
         if !self.expect_peek(Token::LParen) {
             return None;
         }
-        let parameters = match self.parse_function_params() {
-            Some(params) => params,
-            None => return None,
-        };
+        let parameters = self.parse_function_params()?;
+        // let parameters = match self.parse_function_params() {
+        //     Some(params) => params,
+        //     None => return None,
+        // };
 
         if !self.expect_peek(Token::LBrace) {
             return None;
@@ -247,10 +248,11 @@ impl Parser {
     }
 
     fn parse_call_expr(&mut self, function: Expr) -> Option<Expr> {
-        let arguments = match self.parse_call_args() {
-            Some(args) => args,
-            None => return None,
-        };
+        // let arguments = match self.parse_call_args() {
+        //     Some(args) => args,
+        //     None => return None,
+        // };
+        let arguments = self.parse_call_args()?;
         Some(Expr::Call {
             function: Box::new(function),
             arguments,
@@ -382,10 +384,12 @@ impl Parser {
             _ => return None,
         };
         self.next_token();
-        match self.parse_expression(Precedence::PREFIX) {
-            Some(expr) => Some(Expr::Prefix(prefix, Box::new(expr))),
-            None => None,
-        }
+        // match self.parse_expression(Precedence::PREFIX) {
+        //     Some(expr) => Some(Expr::Prefix(prefix, Box::new(expr))),
+        //     None => None,
+        // }
+        self.parse_expression(Precedence::PREFIX)
+            .and_then(|expr| Some(Expr::Prefix(prefix, Box::new(expr))))
     }
 
     fn parse_let_stmt(&mut self) -> Option<Stmt> {
@@ -394,20 +398,22 @@ impl Parser {
             _ => return None,
         };
 
-        let name = match self.parse_ident() {
-            Some(name) => name,
-            None => return None,
-        };
+        // let name = match self.parse_ident() {
+        //     Some(name) => name,
+        //     None => return None,
+        // };
+        let name = self.parse_ident()?;
 
         if !self.expect_peek(Token::Assign) {
             return None;
         }
         self.next_token();
 
-        let expr = match self.parse_expression(Precedence::LOWEST) {
-            Some(expr) => expr,
-            None => return None,
-        };
+        let expr = self.parse_expression(Precedence::LOWEST)?;
+        // let expr = match self.parse_expression(Precedence::LOWEST) {
+        //     Some(expr) => expr,
+        //     None => return None,
+        // };
 
         if self.peek_token_is(Token::SemiColon) {
             self.next_token();
