@@ -1,5 +1,5 @@
 use linefeed::{Interface, ReadResult};
-use monke_rs::lexer::token::Token;
+use monke_rs::evaluator::Evaluator;
 use monke_rs::lexer::Lexer;
 use monke_rs::parser::Parser;
 
@@ -12,7 +12,7 @@ fn main() {
         if input.eq("exit") {
             break;
         }
-        let mut lexer = Lexer::new(input);
+        let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
 
         let program = parser.parse_program();
@@ -20,8 +20,12 @@ fn main() {
             for error in parser.errors() {
                 eprintln!("{}", error);
             }
-        } else {
-            println!("{program}");
+        }
+        let mut evaluator = Evaluator {};
+        let evaluated = evaluator.eval(program);
+        match evaluated {
+            Some(obj) => println!("{obj}"),
+            None => {}
         }
     }
 }
