@@ -140,6 +140,7 @@ impl Lexer {
             b')' => RParen,
             b'[' => LBracket,
             b']' => RBracket,
+            b'"' => self.read_string(),
             0 => EOF,
             _ => {
                 if Lexer::is_letter(self.ch) {
@@ -157,6 +158,15 @@ impl Lexer {
         };
         self.read_char();
         token
+    }
+    fn read_string(&mut self) -> Token {
+        self.read_char();
+        let pos = self.pos;
+        while self.ch != b'"' {
+            self.read_char();
+        }
+        let res = String::from_utf8_lossy(&self.input.as_bytes()[pos..self.pos]).to_string();
+        Token::StringLiteral(res)
     }
 }
 
