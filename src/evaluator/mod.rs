@@ -30,7 +30,46 @@ impl Evaluator {
             Expr::Literal(literal) => self.eval_literal(literal),
             Expr::Prefix(prefix, expr) => self.eval_prefix(prefix, *expr),
             Expr::Infix(left, infix, right) => self.eval_infix(*left, infix, *right),
+            Expr::If {
+                condition,
+                consequence,
+                alternative,
+            } => self.eval_if_else(*condition, consequence, alternative),
             _ => None,
+        }
+    }
+
+    fn eval_if_else(
+        &mut self,
+        condition: Expr,
+        consequence: Vec<Stmt>,
+        alternative: Option<Vec<Stmt>>,
+    ) -> Option<Object> {
+        let condition = self.eval_expr(condition);
+        if self.is_truthy(condition?) {
+            self.eval(Program {
+                statements: consequence,
+            })
+        } else {
+            match alternative {
+                Some(alt) => self.eval(Program { statements: alt }),
+                None => Some(Object::Null),
+            }
+        }
+    }
+
+    fn is_truthy(&self, obj: Object) -> bool {
+        match obj {
+            Object::Null => false,
+            Object::Int(0) => false,
+            Object::Bool(false) => false,
+            Object::String(s) => {
+                if s == String::from("") {
+                    return false;
+                }
+                true
+            }
+            _ => true,
         }
     }
 
@@ -128,6 +167,22 @@ mod test {
         let program = parser.parse_program();
         let mut evaluator = Evaluator {};
         evaluator.eval(program)
+    }
+
+    #[test]
+    fn test_if_else_expr() {
+        let tests = vec![
+            ("if (true) {10}", Some(Object::Int(10))),
+            ("if (false) {10}", Some(Object::Null)),
+            (("if (1) {10}"), Some(Object::Int(10))),
+            (("if (1<2) {10}"), Some(Object::Int(10))),
+            (("if (1>2) {10}"), Some(Object::Null)),
+            (("if (1>2) {10} else {20}"), Some(Object::Int(20))),
+            (("if (1<2) {10} else {20}"), Some(Object::Int(10))),
+        ];
+        for (input, expect) in tests {
+            assert_eq!(expect, eval(input));
+        }
     }
 
     #[test]
