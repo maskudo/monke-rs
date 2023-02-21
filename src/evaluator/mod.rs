@@ -12,6 +12,7 @@ impl Evaluator {
         let mut result: Option<Object> = None;
         for statement in program.statements {
             match self.eval_stmt(statement) {
+                Some(Object::ReturnValue(value)) => return Some(*value),
                 obj => result = obj,
             };
         }
@@ -21,8 +22,26 @@ impl Evaluator {
     fn eval_stmt(&mut self, stmt: Stmt) -> Option<Object> {
         match stmt {
             Stmt::ExprStmt(expr) => self.eval_expr(expr),
+            Stmt::Return(expr) => {
+                let value = match self.eval_expr(expr) {
+                    Some(value) => value,
+                    None => return None,
+                };
+                Some(Object::ReturnValue(Box::new(value)))
+            }
             _ => None,
         }
+    }
+
+    fn eval_block_stmt(&mut self, stmts: Vec<Stmt>) -> Option<Object> {
+        let mut result: Option<Object> = None;
+        for stmt in stmts {
+            match self.eval_stmt(stmt) {
+                Some(Object::ReturnValue(value)) => return Some(Object::ReturnValue(value)),
+                obj => result = obj,
+            };
+        }
+        result
     }
 
     fn eval_expr(&mut self, expr: Expr) -> Option<Object> {
@@ -47,12 +66,10 @@ impl Evaluator {
     ) -> Option<Object> {
         let condition = self.eval_expr(condition);
         if self.is_truthy(condition?) {
-            self.eval(Program {
-                statements: consequence,
-            })
+            self.eval_block_stmt(consequence)
         } else {
             match alternative {
-                Some(alt) => self.eval(Program { statements: alt }),
+                Some(alt) => self.eval_block_stmt(alt),
                 None => Some(Object::Null),
             }
         }
@@ -167,6 +184,19 @@ mod test {
         let program = parser.parse_program();
         let mut evaluator = Evaluator {};
         evaluator.eval(program)
+    }
+
+    #[test]
+    fn test_return_stmt() {
+        let tests = vec![
+            ("return 10;", Some(Object::Int(10))),
+            ("return 10; 9;", Some(Object::Int(10))),
+            (("return 2*5; 9;"), Some(Object::Int(10))),
+            (("9;return 2*5;9;"), Some(Object::Int(10))),
+        ];
+        for (input, expect) in tests {
+            assert_eq!(expect, eval(input));
+        }
     }
 
     #[test]

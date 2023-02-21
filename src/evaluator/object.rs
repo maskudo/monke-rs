@@ -5,6 +5,7 @@ pub enum Object {
     Int(i64),
     String(String),
     Bool(bool),
+    ReturnValue(Box<Object>),
     Null,
 }
 
