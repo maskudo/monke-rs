@@ -2,6 +2,7 @@ use crate::parser::ast::{self, Expr, Infix, Literal, Program, Stmt};
 
 use self::object::Object;
 
+mod env;
 mod object;
 
 #[derive(Debug)]
@@ -13,6 +14,7 @@ impl Evaluator {
         for statement in program.statements {
             match self.eval_stmt(statement) {
                 Some(Object::ReturnValue(value)) => return Some(*value),
+                Some(Object::Error(err)) => return Some(Object::Error(err)),
                 obj => result = obj,
             };
         }
@@ -38,6 +40,7 @@ impl Evaluator {
         for stmt in stmts {
             match self.eval_stmt(stmt) {
                 Some(Object::ReturnValue(value)) => return Some(Object::ReturnValue(value)),
+                Some(Object::Error(err)) => return Some(Object::Error(err)),
                 obj => result = obj,
             };
         }
@@ -94,34 +97,52 @@ impl Evaluator {
         match prefix {
             ast::Prefix::Not => self.eval_expr(expr).and_then(|value| match value {
                 Object::Bool(bool) => Some(Object::Bool(!bool)),
-                _ => return None,
+                _ => return Some(Object::Error(format!("unknown operator: !{}", value))),
             }),
             ast::Prefix::Plus => self.eval_expr(expr).and_then(|obj| match obj {
                 Object::Int(int) => Some(Object::Int(int)),
-                _ => return None,
+                _ => return Some(Object::Error(format!("unknown operator: +{}", obj))),
             }),
             ast::Prefix::Minus => self.eval_expr(expr).and_then(|obj| match obj {
                 Object::Int(int) => Some(Object::Int(-int)),
-                _ => return None,
+                _ => return Some(Object::Error(format!("unknown operator: -{}", obj))),
             }),
         }
     }
 
     fn eval_infix(&mut self, left: Expr, infix: ast::Infix, right: Expr) -> Option<Object> {
-        match self.eval_expr(left)? {
-            Object::Int(left) => match self.eval_expr(right)? {
+        match self.eval_expr(left.clone())? {
+            Object::Int(left) => match self.eval_expr(right.clone())? {
                 Object::Int(right) => Some(self.eval_infix_int_expr(left, infix, right)),
-                _ => return None,
+                _ => {
+                    return Some(Object::Error(format!(
+                        "type mismatch: {} {} {}",
+                        left, infix, right
+                    )))
+                }
             },
-            Object::Bool(left) => match self.eval_expr(right)? {
+            Object::Bool(left) => match self.eval_expr(right.clone())? {
                 Object::Bool(right) => self.eval_infix_bool_expr(left, infix, right),
-                _ => return None,
+                _ => {
+                    return Some(Object::Error(format!(
+                        "type mismatch: {} {} {}",
+                        left, infix, right
+                    )))
+                }
             },
-            Object::String(left) => match self.eval_expr(right)? {
+            Object::String(left) => match self.eval_expr(right.clone())? {
                 Object::String(right) => self.eval_infix_string_expr(left, infix, right),
-                _ => return None,
+                _ => {
+                    return Some(Object::Error(format!(
+                        "type mismatch: {} {} {}",
+                        left, infix, right
+                    )))
+                }
             },
-            _ => None,
+            _ => Some(Object::Error(format!(
+                "unknown operator: {} {} {}",
+                left, infix, right
+            ))),
         }
     }
 
@@ -145,7 +166,10 @@ impl Evaluator {
         match infix {
             Infix::Equal => Some(Object::Bool(left == right)),
             Infix::NotEqual => Some(Object::Bool(left != right)),
-            _ => None,
+            _ => Some(Object::Error(format!(
+                "unknown operator: {} {} {}",
+                left, infix, right
+            ))),
         }
     }
 
@@ -157,7 +181,10 @@ impl Evaluator {
     ) -> Option<Object> {
         match infix {
             Infix::Plus => Some(Object::String(format!("{}{}", left, right))),
-            _ => None,
+            _ => Some(Object::Error(format!(
+                "unknown operator: {} {} {}",
+                left, infix, right
+            ))),
         }
     }
 
@@ -184,6 +211,59 @@ mod test {
         let program = parser.parse_program();
         let mut evaluator = Evaluator {};
         evaluator.eval(program)
+    }
+
+    #[test]
+    fn test_error_handling() {
+        let tests = vec![
+            (
+                "5 + true;",
+                Some(Object::Error(String::from("type mismatch: 5 + true"))),
+            ),
+            (
+                "5 + true; 5;",
+                Some(Object::Error(String::from("type mismatch: 5 + true"))),
+            ),
+            (
+                "-true;",
+                Some(Object::Error(String::from("unknown operator: -true"))),
+            ),
+            (
+                "true + false;",
+                Some(Object::Error(String::from(
+                    "unknown operator: true + false",
+                ))),
+            ),
+            (
+                "5; \"hello\" + false; 5",
+                Some(Object::Error(String::from("type mismatch: hello + false"))),
+            ),
+            (
+                "5; true + false; 5",
+                Some(Object::Error(String::from(
+                    "unknown operator: true + false",
+                ))),
+            ),
+            (
+                "if (10 > 1) { true + false; }",
+                Some(Object::Error(String::from(
+                    "unknown operator: true + false",
+                ))),
+            ),
+            (
+                "if (10 > 1) { if (10 > 1) { return true + false; } return 1; }",
+                Some(Object::Error(String::from(
+                    "unknown operator: true + false",
+                ))),
+            ),
+            (
+                "foobar",
+                Some(Object::Error(String::from("identifier not found: foobar"))),
+            ),
+        ];
+        for (input, expect) in tests {
+            assert_eq!(expect, eval(input));
+        }
     }
 
     #[test]
@@ -275,6 +355,22 @@ mod test {
             ("!false", Some(Object::Bool(true))),
             ("!!false", Some(Object::Bool(false))),
             ("!!true", Some(Object::Bool(true))),
+        ];
+        for (input, expect) in tests {
+            assert_eq!(expect, eval(input));
+        }
+    }
+
+    #[test]
+    fn test_let_statements() {
+        let tests = vec![
+            ("let a = 5; a;", Some(Object::Int(5))),
+            ("let a = 5*5; a;", Some(Object::Int(25))),
+            ("let a = 5; let b = a; b;", Some(Object::Int(5))),
+            (
+                "let a = 5; let b = a; let c = a + b + 5;",
+                Some(Object::Int(15)),
+            ),
         ];
         for (input, expect) in tests {
             assert_eq!(expect, eval(input));
