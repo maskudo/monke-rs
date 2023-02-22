@@ -1,4 +1,5 @@
 use linefeed::{Interface, ReadResult};
+use monke_rs::evaluator::env::Env;
 use monke_rs::evaluator::Evaluator;
 use monke_rs::lexer::Lexer;
 use monke_rs::parser::Parser;
@@ -21,7 +22,8 @@ fn main() {
                 eprintln!("{}", error);
             }
         }
-        let mut evaluator = Evaluator {};
+        let env = Env::new();
+        let mut evaluator = Evaluator::new(env);
         let evaluated = evaluator.eval(program);
         match evaluated {
             Some(obj) => println!("{obj}"),

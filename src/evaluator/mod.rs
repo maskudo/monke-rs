@@ -1,14 +1,20 @@
-use crate::parser::ast::{self, Expr, Infix, Literal, Program, Stmt};
+use crate::parser::ast::{self, Expr, Ident, Infix, Literal, Program, Stmt};
 
+use self::env::Env;
 use self::object::Object;
 
-mod env;
+pub mod env;
 mod object;
 
 #[derive(Debug)]
-pub struct Evaluator {}
+pub struct Evaluator {
+    env: Env,
+}
 
 impl Evaluator {
+    pub fn new(env: Env) -> Self {
+        Evaluator { env }
+    }
     pub fn eval(&mut self, program: Program) -> Option<Object> {
         let mut result: Option<Object> = None;
         for statement in program.statements {
@@ -31,7 +37,20 @@ impl Evaluator {
                 };
                 Some(Object::ReturnValue(Box::new(value)))
             }
-            _ => None,
+            Stmt::Let(name, value) => {
+                let value = self.eval_expr(value)?;
+                let is_error = match value {
+                    Object::Error(_) => true,
+                    _ => false,
+                };
+                if is_error {
+                    Some(value)
+                } else {
+                    let Ident(name) = name;
+                    self.env.set(name, value);
+                    None
+                }
+            }
         }
     }
 
@@ -57,7 +76,17 @@ impl Evaluator {
                 consequence,
                 alternative,
             } => self.eval_if_else(*condition, consequence, alternative),
+            Expr::Ident(ident) => Some(self.eval_ident(ident)),
             _ => None,
+        }
+    }
+
+    fn eval_ident(&self, ident: Ident) -> Object {
+        let Ident(ident) = ident;
+        let value = self.env.get(&ident);
+        match value {
+            Some(value) => value,
+            None => Object::Error(format!("identifier not found: {}", ident)),
         }
     }
 
@@ -203,13 +232,14 @@ mod test {
 
     use crate::{lexer::Lexer, parser::Parser};
 
-    use super::{object::Object, Evaluator};
+    use super::{env::Env, object::Object, Evaluator};
 
     fn eval(input: &str) -> Option<Object> {
         let lexer = Lexer::new(input.to_string());
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator {};
+        let env = Env::new();
+        let mut evaluator = Evaluator::new(env);
         evaluator.eval(program)
     }
 
@@ -368,7 +398,7 @@ mod test {
             ("let a = 5*5; a;", Some(Object::Int(25))),
             ("let a = 5; let b = a; b;", Some(Object::Int(5))),
             (
-                "let a = 5; let b = a; let c = a + b + 5;",
+                "let a = 5; let b = a; let c = a + b + 5; c;",
                 Some(Object::Int(15)),
             ),
         ];
