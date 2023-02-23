@@ -1,4 +1,10 @@
-use std::fmt::{Display, Formatter};
+use super::env::Env;
+use crate::parser::ast::{BlockStmt, Ident};
+use std::{
+    cell::RefCell,
+    fmt::{Display, Formatter},
+    rc::Rc,
+};
 
 #[derive(PartialEq, Clone, Debug)]
 pub enum Object {
@@ -6,6 +12,11 @@ pub enum Object {
     String(String),
     Bool(bool),
     ReturnValue(Box<Object>),
+    Function {
+        parameters: Vec<Ident>,
+        body: BlockStmt,
+        env: Rc<RefCell<Env>>,
+    },
     Null,
     Error(String),
 }

@@ -1,3 +1,6 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use crate::parser::ast::{self, Expr, Ident, Infix, Literal, Program, Stmt};
 
 use self::env::Env;
@@ -77,6 +80,11 @@ impl Evaluator {
                 alternative,
             } => self.eval_if_else(*condition, consequence, alternative),
             Expr::Ident(ident) => Some(self.eval_ident(ident)),
+            Expr::Function { parameters, body } => Some(Object::Function {
+                parameters,
+                body,
+                env: Rc::new(RefCell::new(Env::new())),
+            }),
             _ => None,
         }
     }
@@ -228,9 +236,15 @@ impl Evaluator {
 
 #[cfg(test)]
 mod test {
-    use std::vec;
+    use std::{cell::RefCell, rc::Rc, vec};
 
-    use crate::{lexer::Lexer, parser::Parser};
+    use crate::{
+        lexer::Lexer,
+        parser::{
+            ast::{Ident, Stmt},
+            Parser,
+        },
+    };
 
     use super::{env::Env, object::Object, Evaluator};
 
@@ -402,6 +416,27 @@ mod test {
                 Some(Object::Int(15)),
             ),
         ];
+        for (input, expect) in tests {
+            assert_eq!(expect, eval(input));
+        }
+    }
+
+    #[test]
+    fn test_function_object() {
+        let tests = vec![(
+            "fn(x) {x+2;};",
+            Some(Object::Function {
+                parameters: vec![Ident(String::from("x"))],
+                body: vec![Stmt::ExprStmt(crate::parser::ast::Expr::Infix(
+                    Box::new(crate::parser::ast::Expr::Ident(Ident(String::from("x")))),
+                    crate::parser::ast::Infix::Plus,
+                    Box::new(crate::parser::ast::Expr::Literal(
+                        crate::parser::ast::Literal::Int(2),
+                    )),
+                ))],
+                env: Rc::new(RefCell::new(Env::new())),
+            }),
+        )];
         for (input, expect) in tests {
             assert_eq!(expect, eval(input));
         }
