@@ -11,11 +11,11 @@ mod object;
 
 #[derive(Debug)]
 pub struct Evaluator {
-    env: Env,
+    env: Rc<RefCell<Env>>,
 }
 
 impl Evaluator {
-    pub fn new(env: Env) -> Self {
+    pub fn new(env: Rc<RefCell<Env>>) -> Self {
         Evaluator { env }
     }
     pub fn eval(&mut self, program: Program) -> Option<Object> {
@@ -50,7 +50,7 @@ impl Evaluator {
                     Some(value)
                 } else {
                     let Ident(name) = name;
-                    self.env.set(name, value);
+                    self.env.borrow_mut().set(name, value);
                     None
                 }
             }
@@ -85,13 +85,58 @@ impl Evaluator {
                 body,
                 env: Rc::new(RefCell::new(Env::new())),
             }),
-            _ => None,
+            Expr::Call {
+                function,
+                arguments,
+            } => Some(self.eval_call_expr(function, arguments)),
+        }
+    }
+
+    fn eval_call_expr(&mut self, function: Box<Expr>, arguments: Vec<Expr>) -> Object {
+        let args: Vec<Object> = arguments
+            .iter()
+            .map(|expr| self.eval_expr(expr.clone()).unwrap_or(Object::Null))
+            .collect();
+        let (params, body, env) = match self.eval_expr(*function) {
+            Some(Object::Function {
+                parameters,
+                body,
+                env,
+            }) => (parameters, body, env),
+            Some(obj) => return Object::Error(format!("{} is not a valid function", obj)),
+            None => return Object::Null,
+        };
+
+        if params.len() != arguments.len() {
+            return Object::Error(format!(
+                "wrong number of arguments: expected {} but {} given",
+                params.len(),
+                arguments.len()
+            ));
+        };
+
+        let current_env = Rc::clone(&self.env);
+        let mut scoped_env = Env::new_enclosed_env(Rc::clone(&env));
+        let list = params.iter().zip(args.iter());
+        for (_, (ident, value)) in list.enumerate() {
+            let Ident(name) = ident.clone();
+            scoped_env.set(name, value.clone());
+        }
+
+        self.env = Rc::new(RefCell::new(scoped_env));
+        println!("{:?}", self.env);
+        let object = self.eval_block_stmt(body);
+
+        self.env = current_env;
+        match object {
+            Some(obj) => obj,
+            None => Object::Null,
         }
     }
 
     fn eval_ident(&self, ident: Ident) -> Object {
         let Ident(ident) = ident;
-        let value = self.env.get(&ident);
+        let value = self.env.borrow_mut().get(&ident);
         match value {
             Some(value) => value,
             None => Object::Error(format!("identifier not found: {}", ident)),
@@ -252,7 +297,7 @@ mod test {
         let lexer = Lexer::new(input.to_string());
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let env = Env::new();
+        let env = Rc::new(RefCell::new(Env::new()));
         let mut evaluator = Evaluator::new(env);
         evaluator.eval(program)
     }
@@ -437,6 +482,45 @@ mod test {
                 env: Rc::new(RefCell::new(Env::new())),
             }),
         )];
+        for (input, expect) in tests {
+            assert_eq!(expect, eval(input));
+        }
+    }
+
+    #[test]
+    fn test_function_application() {
+        let tests = vec![
+            (
+                "let identity = fn(x) {x;}; identity(5);",
+                Some(Object::Int(5)),
+            ),
+            (
+                "let identity = fn(x) {return x;}; identity(5);",
+                Some(Object::Int(5)),
+            ),
+            (
+                "let double = fn(x) {x*2}; double(5);",
+                Some(Object::Int(10)),
+            ),
+            (
+                "let add = fn(x, y) {x+y}; add(5, 5);",
+                Some(Object::Int(10)),
+            ),
+            (
+                "let add = fn(x, y) {x+y}; add(5 + 5, add(5,5));",
+                Some(Object::Int(20)),
+            ),
+            ("fn(x) {x;}(5)", Some(Object::Int(5))),
+            // #TODO
+            // (
+            //     "let newAdder = fn(x) {
+            //         fn(y) { x + y };
+            //     };
+            //     let addTwo = newAdder(2);
+            //     addTwo(2);",
+            //     Some(Object::Int(4)),
+            // ),
+        ];
         for (input, expect) in tests {
             assert_eq!(expect, eval(input));
         }

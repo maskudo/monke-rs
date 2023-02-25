@@ -3,6 +3,8 @@ use monke_rs::evaluator::env::Env;
 use monke_rs::evaluator::Evaluator;
 use monke_rs::lexer::Lexer;
 use monke_rs::parser::Parser;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 const PROMPT: &str = ">>";
 fn main() {
@@ -22,7 +24,7 @@ fn main() {
                 eprintln!("{}", error);
             }
         }
-        let env = Env::new();
+        let env = Rc::new(RefCell::new(Env::new()));
         let mut evaluator = Evaluator::new(env);
         let evaluated = evaluator.eval(program);
         match evaluated {
