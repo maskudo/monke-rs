@@ -83,7 +83,7 @@ impl Evaluator {
             Expr::Function { parameters, body } => Some(Object::Function {
                 parameters,
                 body,
-                env: Rc::new(RefCell::new(Env::new())),
+                env: Rc::clone(&self.env),
             }),
             Expr::Call {
                 function,
@@ -107,11 +107,11 @@ impl Evaluator {
             None => return Object::Null,
         };
 
-        if params.len() != arguments.len() {
+        if params.len() != args.len() {
             return Object::Error(format!(
                 "wrong number of arguments: expected {} but {} given",
                 params.len(),
-                arguments.len()
+                args.len()
             ));
         };
 
@@ -124,7 +124,6 @@ impl Evaluator {
         }
 
         self.env = Rc::new(RefCell::new(scoped_env));
-        println!("{:?}", self.env);
         let object = self.eval_block_stmt(body);
 
         self.env = current_env;
@@ -512,14 +511,14 @@ mod test {
             ),
             ("fn(x) {x;}(5)", Some(Object::Int(5))),
             // #TODO
-            // (
-            //     "let newAdder = fn(x) {
-            //         fn(y) { x + y };
-            //     };
-            //     let addTwo = newAdder(2);
-            //     addTwo(2);",
-            //     Some(Object::Int(4)),
-            // ),
+            (
+                "let newAdder = fn(x) {
+                    fn(y) { x + y };
+                };
+                let addTwo = newAdder(2);
+                addTwo(2);",
+                Some(Object::Int(4)),
+            ),
         ];
         for (input, expect) in tests {
             assert_eq!(expect, eval(input));
