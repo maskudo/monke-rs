@@ -11,11 +11,13 @@ fn main() {
     let reader = Interface::new(PROMPT).unwrap();
     reader.set_prompt(format!("{}", PROMPT).as_ref()).unwrap();
 
+    let env = Rc::new(RefCell::new(Env::new()));
+    let mut evaluator = Evaluator::new(env);
     while let ReadResult::Input(input) = reader.read_line().unwrap() {
         if input.eq("exit") {
             break;
         }
-        let lexer = Lexer::new(input);
+        let lexer = Lexer::new(input.clone());
         let mut parser = Parser::new(lexer);
 
         let program = parser.parse_program();
@@ -24,8 +26,6 @@ fn main() {
                 eprintln!("{}", error);
             }
         }
-        let env = Rc::new(RefCell::new(Env::new()));
-        let mut evaluator = Evaluator::new(env);
         let evaluated = evaluator.eval(program);
         match evaluated {
             Some(obj) => println!("{obj}"),
