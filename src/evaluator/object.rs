@@ -5,6 +5,8 @@ use std::{
     fmt::{Display, Formatter},
     rc::Rc,
 };
+pub type BuiltInFunc = fn(Vec<Object>) -> Object;
+pub type NoOfParams = u8;
 
 #[derive(PartialEq, Clone, Debug)]
 pub enum Object {
@@ -17,6 +19,7 @@ pub enum Object {
         body: BlockStmt,
         env: Rc<RefCell<Env>>,
     },
+    Builtin(NoOfParams, BuiltInFunc),
     Null,
     Error(String),
 }

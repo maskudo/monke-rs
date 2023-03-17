@@ -8,6 +8,7 @@ use self::object::Object;
 
 pub mod env;
 mod object;
+pub mod builtin;
 
 #[derive(Debug)]
 pub struct Evaluator {
@@ -103,6 +104,13 @@ impl Evaluator {
                 body,
                 env,
             }) => (parameters, body, env),
+            Some(Object::Builtin(no_of_params, f)) => {
+                if  no_of_params == args.len() as u8{
+                    return f(args);
+                }else {
+                    return Object::Error(format!("wrong number of arguments, expected {}, got {}",no_of_params, args.len() ))
+                }
+            },
             Some(obj) => return Object::Error(format!("{} is not a valid function", obj)),
             None => return Object::Null,
         };
@@ -290,13 +298,14 @@ mod test {
         },
     };
 
-    use super::{env::Env, object::Object, Evaluator};
+    use super::{env::Env, object::Object, Evaluator, builtin::new_builtins};
 
     fn eval(input: &str) -> Option<Object> {
         let lexer = Lexer::new(input.to_string());
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let env = Rc::new(RefCell::new(Env::new()));
+        // let env = Rc::new(RefCell::new(Env::new()));
+        let env = Rc::new(RefCell::new(Env::from(new_builtins())));
         let mut evaluator = Evaluator::new(env);
         evaluator.eval(program)
     }
@@ -478,7 +487,7 @@ mod test {
                         crate::parser::ast::Literal::Int(2),
                     )),
                 ))],
-                env: Rc::new(RefCell::new(Env::new())),
+                env: Rc::new(RefCell::new(Env::from(new_builtins()))),
             }),
         )];
         for (input, expect) in tests {
@@ -518,6 +527,35 @@ mod test {
                 let addTwo = newAdder(2);
                 addTwo(2);",
                 Some(Object::Int(4)),
+            ),
+        ];
+        for (input, expect) in tests {
+            assert_eq!(expect, eval(input));
+        }
+    }
+
+    #[test]
+    fn test_build_in_function() {
+        let tests = vec![
+            (
+                "len(\"\")",
+                Some(Object::Int(0)),
+            ),
+            (
+                "len(\"four\")",
+                Some(Object::Int(4)),
+            ),
+            (
+                "len(\"hello world\")",
+                Some(Object::Int(11)),
+            ),
+            (
+                "len(1)",
+                Some(Object::Error(String::from("argument to `len` not supported, got 1"))),
+            ),
+            (
+                "len(\"one\", \"two\")",
+                Some(Object::Error(String::from("wrong number of arguments, expected 1, got 2"))),
             ),
         ];
         for (input, expect) in tests {
