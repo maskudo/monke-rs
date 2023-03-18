@@ -582,7 +582,7 @@ mod test {
             (
                 "len(1)",
                 Some(Object::Error(String::from(
-                    "argument to `len` not supported, got 1",
+                    "argument to `len` must be array, got 1",
                 ))),
             ),
             (
@@ -591,6 +591,75 @@ mod test {
                     "wrong number of arguments, expected 1, got 2",
                 ))),
             ),
+            ("first([1,2,3])", Some(Object::Int(1))),
+            ("first([])", Some(Object::Null)),
+            (
+                "first(\"string\")",
+                Some(Object::Error(format!(
+                    "argument to `first` must be array, got string"
+                ))),
+            ),
+            (
+                "first(1)",
+                Some(Object::Error(format!(
+                    "argument to `first` must be array, got 1"
+                ))),
+            ),
+            ("last([1,2,3])", Some(Object::Int(3))),
+            ("last([])", Some(Object::Null)),
+            (
+                "last(\"string\")",
+                Some(Object::Error(format!(
+                    "argument to `last` must be array, got string"
+                ))),
+            ),
+            (
+                "last(1)",
+                Some(Object::Error(format!(
+                    "argument to `last` must be array, got 1"
+                ))),
+            ),
+            (
+                "rest([1,2,3])",
+                Some(Object::Array(vec![Object::Int(2), Object::Int(3)])),
+            ),
+            ("rest([5])", Some(Object::Array(vec![]))),
+            ("rest([])", Some(Object::Null)),
+            (
+                "rest(\"string\")",
+                Some(Object::Error(format!(
+                    "argument to `rest` must be array, got string"
+                ))),
+            ),
+            (
+                "rest(1)",
+                Some(Object::Error(format!(
+                    "argument to `rest` must be array, got 1"
+                ))),
+            ),
+            (
+                "push([1,2,3], 4)",
+                Some(Object::Array(vec![
+                    Object::Int(1),
+                    Object::Int(2),
+                    Object::Int(3),
+                    Object::Int(4),
+                ])),
+            ),
+            ("push([],1)", Some(Object::Array(vec![Object::Int(1)]))),
+            (
+                "push(\"string\", 1)",
+                Some(Object::Error(format!(
+                    "argument to `push` must be array, got string"
+                ))),
+            ),
+            (
+                "push(1,1)",
+                Some(Object::Error(format!(
+                    "argument to `push` must be array, got 1"
+                ))),
+            ),
+            //TODO
             // (
             //     "map([1,2,3], fn(x){return x+1;});",
             //     Some(Object::Array(vec![
