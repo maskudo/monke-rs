@@ -32,6 +32,7 @@ pub enum Expr {
         function: Box<Expr>,
         arguments: Vec<Expr>,
     },
+    Index(Box<Expr>, Box<Expr>),
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]

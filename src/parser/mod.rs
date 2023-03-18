@@ -110,6 +110,7 @@ impl Parser {
             Token::Divide | Token::Multiply => Precedence::PRODUCT,
             Token::Not => Precedence::PREFIX,
             Token::LParen => Precedence::CALL,
+            Token::LBracket => Precedence::INDEX,
             _ => Precedence::LOWEST,
         }
     }
@@ -171,6 +172,10 @@ impl Parser {
                 Token::LParen => {
                     self.next_token();
                     left = self.parse_call_expr(left?);
+                }
+                Token::LBracket => {
+                    self.next_token();
+                    left = self.parse_index_expr(left?);
                 }
                 _ => return left,
             }
@@ -249,15 +254,20 @@ impl Parser {
     }
 
     fn parse_call_expr(&mut self, function: Expr) -> Option<Expr> {
-        // let arguments = match self.parse_call_args() {
-        //     Some(args) => args,
-        //     None => return None,
-        // };
         let arguments = self.parse_expr_list(Token::RParen)?;
         Some(Expr::Call {
             function: Box::new(function),
             arguments,
         })
+    }
+
+    fn parse_index_expr(&mut self, left: Expr) -> Option<Expr> {
+        self.next_token();
+        let index = self.parse_expression(Precedence::LOWEST)?;
+        if !self.expect_peek(Token::RBracket) {
+            return None;
+        }
+        Some(Expr::Index(Box::new(left), Box::new(index)))
     }
 
     fn parse_array_expr(&mut self) -> Option<Expr> {
@@ -533,7 +543,6 @@ mod test {
             ],
         };
         assert_eq!(output, program);
-        println!("{:?}", program);
     }
 
     #[test]
@@ -935,7 +944,6 @@ let myVar = 10;
         let mut parser = Parser::new(lexer);
 
         let program = parser.parse_program();
-        println!("{:?}", program);
         check_parser_errors(&parser);
         assert_eq!(output, program.statements[0]);
     }
@@ -964,6 +972,27 @@ let myVar = 10;
         check_parser_errors(&parser);
         assert_eq!(output, program.statements[0]);
     }
+
+    #[test]
+    fn test_index_expr() {
+        let input = String::from("myArray[1 + 1];");
+        let output = Stmt::ExprStmt(Expr::Index(
+            Box::new(Expr::Ident(Ident(String::from("myArray")))),
+            Box::new(Expr::Infix(
+                Box::new(Expr::Literal(Literal::Int(1))),
+                Infix::Plus,
+                Box::new(Expr::Literal(Literal::Int(1))),
+            )),
+        ));
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+        println!("{:?}", program);
+        check_parser_errors(&parser);
+        assert_eq!(output, program.statements[0]);
+    }
+
     fn check_parser_errors(parser: &Parser) {
         let errors = parser.errors();
         if errors.len() == 0 {

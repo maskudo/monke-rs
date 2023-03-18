@@ -6,9 +6,9 @@ use crate::parser::ast::{self, Expr, Ident, Infix, Literal, Program, Stmt};
 use self::env::Env;
 use self::object::Object;
 
+pub mod builtin;
 pub mod env;
 mod object;
-pub mod builtin;
 
 #[derive(Debug)]
 pub struct Evaluator {
@@ -90,6 +90,32 @@ impl Evaluator {
                 function,
                 arguments,
             } => Some(self.eval_call_expr(function, arguments)),
+            Expr::Index(left, index) => {
+                let left = self.eval_expr(*left)?;
+                let index = self.eval_expr(*index)?;
+                Some(self.eval_index_expr(left, index))
+            }
+            // _ => Some(Object::Error(String::from("not implemented"))),
+        }
+    }
+
+    fn eval_index_expr(&mut self, left: Object, index: Object) -> Object {
+        match left {
+            Object::Array(ref array) => {
+                if let Object::Int(i) = index {
+                    self.eval_array_index_expr(array.clone(), i)
+                } else {
+                    Object::Error(format!("index is not an integer, got:{}", index))
+                }
+            }
+            _ => Object::Error(format!("unknown operator on {}: {}", left, index)),
+        }
+    }
+
+    fn eval_array_index_expr(&mut self, array: Vec<Object>, index: i64) -> Object {
+        match array.get(index as usize) {
+            Some(o) => o.clone(),
+            None => Object::Error(format!("index out of range: {}", index)),
         }
     }
 
@@ -105,12 +131,16 @@ impl Evaluator {
                 env,
             }) => (parameters, body, env),
             Some(Object::Builtin(no_of_params, f)) => {
-                if  no_of_params == args.len() as u8{
+                if no_of_params == args.len() as u8 {
                     return f(args);
-                }else {
-                    return Object::Error(format!("wrong number of arguments, expected {}, got {}",no_of_params, args.len() ))
+                } else {
+                    return Object::Error(format!(
+                        "wrong number of arguments, expected {}, got {}",
+                        no_of_params,
+                        args.len()
+                    ));
                 }
-            },
+            }
             Some(obj) => return Object::Error(format!("{} is not a valid function", obj)),
             None => return Object::Null,
         };
@@ -286,11 +316,13 @@ impl Evaluator {
         }
     }
 
-    fn eval_array_literal(&mut self, objects: Vec<Expr>)-> Object {
-        Object::Array(objects
-            .iter()
-            .map(|obj| self.eval_expr(obj.clone()).unwrap_or(Object::Null))
-            .collect::<Vec<_>>())
+    fn eval_array_literal(&mut self, objects: Vec<Expr>) -> Object {
+        Object::Array(
+            objects
+                .iter()
+                .map(|obj| self.eval_expr(obj.clone()).unwrap_or(Object::Null))
+                .collect::<Vec<_>>(),
+        )
     }
 }
 
@@ -306,7 +338,7 @@ mod test {
         },
     };
 
-    use super::{env::Env, object::Object, Evaluator, builtin::new_builtins};
+    use super::{builtin::new_builtins, env::Env, object::Object, Evaluator};
 
     fn eval(input: &str) -> Option<Object> {
         let lexer = Lexer::new(input.to_string());
@@ -545,25 +577,20 @@ mod test {
     #[test]
     fn test_build_in_function() {
         let tests = vec![
-            (
-                "len(\"\")",
-                Some(Object::Int(0)),
-            ),
-            (
-                "len(\"four\")",
-                Some(Object::Int(4)),
-            ),
-            (
-                "len(\"hello world\")",
-                Some(Object::Int(11)),
-            ),
+            ("len(\"\")", Some(Object::Int(0))),
+            ("len(\"four\")", Some(Object::Int(4))),
+            ("len(\"hello world\")", Some(Object::Int(11))),
             (
                 "len(1)",
-                Some(Object::Error(String::from("argument to `len` not supported, got 1"))),
+                Some(Object::Error(String::from(
+                    "argument to `len` not supported, got 1",
+                ))),
             ),
             (
                 "len(\"one\", \"two\")",
-                Some(Object::Error(String::from("wrong number of arguments, expected 1, got 2"))),
+                Some(Object::Error(String::from(
+                    "wrong number of arguments, expected 1, got 2",
+                ))),
             ),
         ];
         for (input, expect) in tests {
@@ -573,16 +600,14 @@ mod test {
 
     #[test]
     fn test_array_literal() {
-        let tests = vec![
-            (
-                "[1, 2 * 2, 3 + 3]",
-                Some(Object::Array(vec![
-                    Object::Int(1),
-                    Object::Int(4),
-                    Object::Int(6),
-                ])),
-            )
-        ];
+        let tests = vec![(
+            "[1, 2 * 2, 3 + 3]",
+            Some(Object::Array(vec![
+                Object::Int(1),
+                Object::Int(4),
+                Object::Int(6),
+            ])),
+        )];
         for (input, expect) in tests {
             assert_eq!(expect, eval(input));
         }
@@ -604,8 +629,8 @@ mod test {
                 "let myArray = [1, 2, 3]; let i = myArray[0]; myArray[i];",
                 Some(Object::Int(2)),
             ),
-            ("[1, 2, 3][3]", Some(Object::Null)),
-            ("[1, 2, 3][-1]", Some(Object::Null)),
+            ("[1, 2, 3][3]", Some(Object::Error(format!("index out of range: 3")))),
+            ("[1, 2, 3][-1]", Some(Object::Error(format!("index out of range: -1")))),
         ];
 
         for (input, expect) in tests {
