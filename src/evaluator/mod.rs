@@ -94,8 +94,7 @@ impl Evaluator {
                 let left = self.eval_expr(*left)?;
                 let index = self.eval_expr(*index)?;
                 Some(self.eval_index_expr(left, index))
-            }
-            // _ => Some(Object::Error(String::from("not implemented"))),
+            } // _ => Some(Object::Error(String::from("not implemented"))),
         }
     }
 
@@ -575,7 +574,7 @@ mod test {
     }
 
     #[test]
-    fn test_build_in_function() {
+    fn test_built_in_function() {
         let tests = vec![
             ("len(\"\")", Some(Object::Int(0))),
             ("len(\"four\")", Some(Object::Int(4))),
@@ -592,6 +591,14 @@ mod test {
                     "wrong number of arguments, expected 1, got 2",
                 ))),
             ),
+            // (
+            //     "map([1,2,3], fn(x){return x+1;});",
+            //     Some(Object::Array(vec![
+            //         Object::Int(2),
+            //         Object::Int(3),
+            //         Object::Int(4),
+            //     ])),
+            // ),
         ];
         for (input, expect) in tests {
             assert_eq!(expect, eval(input));
@@ -629,8 +636,14 @@ mod test {
                 "let myArray = [1, 2, 3]; let i = myArray[0]; myArray[i];",
                 Some(Object::Int(2)),
             ),
-            ("[1, 2, 3][3]", Some(Object::Error(format!("index out of range: 3")))),
-            ("[1, 2, 3][-1]", Some(Object::Error(format!("index out of range: -1")))),
+            (
+                "[1, 2, 3][3]",
+                Some(Object::Error(format!("index out of range: 3"))),
+            ),
+            (
+                "[1, 2, 3][-1]",
+                Some(Object::Error(format!("index out of range: -1"))),
+            ),
         ];
 
         for (input, expect) in tests {

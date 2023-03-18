@@ -17,7 +17,7 @@ fn len(args: Vec<Object>) -> Object {
     }
     match &args[0] {
         Object::String(s) => Object::Int(s.len() as i64),
-        // Object::Array(arr) => Object::Int(arr.len() i64),
+        Object::Array(arr) => Object::Int(arr.len() as i64),
         obj => Object::Error(format!("argument to `len` not supported, got {}", obj)),
     }
 }
