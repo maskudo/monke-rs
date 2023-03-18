@@ -4,6 +4,7 @@ use monke_rs::evaluator::Evaluator;
 use monke_rs::lexer::Lexer;
 use monke_rs::parser::Parser;
 use std::cell::RefCell;
+use monke_rs::evaluator::builtin::new_builtins;
 use std::rc::Rc;
 
 const PROMPT: &str = ">>";
@@ -11,7 +12,8 @@ fn main() {
     let reader = Interface::new(PROMPT).unwrap();
     reader.set_prompt(format!("{}", PROMPT).as_ref()).unwrap();
 
-    let env = Rc::new(RefCell::new(Env::new()));
+    // let env = Rc::new(RefCell::new(Env::new()));
+    let env = Rc::new(RefCell::new(Env::from(new_builtins())));
     let mut evaluator = Evaluator::new(env);
     while let ReadResult::Input(input) = reader.read_line().unwrap() {
         if input.eq("exit") {
