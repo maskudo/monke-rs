@@ -146,6 +146,7 @@ impl Parser {
             Token::StringLiteral(_) => self.parse_string_literal_expr(),
             Token::Plus | Token::Minus | Token::Not => self.parse_prefix_expr(),
             Token::LParen => self.parse_grouped_expr(),
+            Token::LBracket => self.parse_array_expr(),
             Token::If => self.parse_if_expr(),
             Token::Function => self.parse_function_expr(),
             _ => None,
@@ -165,11 +166,11 @@ impl Parser {
                 | Token::GreaterThan
                 | Token::GreaterThanEqual => {
                     self.next_token();
-                    left = self.parse_infix_expression(left.unwrap());
+                    left = self.parse_infix_expression(left?);
                 }
                 Token::LParen => {
                     self.next_token();
-                    left = self.parse_call_expr(left.unwrap());
+                    left = self.parse_call_expr(left?);
                 }
                 _ => return left,
             }
@@ -252,17 +253,24 @@ impl Parser {
         //     Some(args) => args,
         //     None => return None,
         // };
-        let arguments = self.parse_call_args()?;
+        let arguments = self.parse_expr_list(Token::RParen)?;
         Some(Expr::Call {
             function: Box::new(function),
             arguments,
         })
     }
 
-    fn parse_call_args(&mut self) -> Option<Vec<Expr>> {
+    fn parse_array_expr(&mut self) -> Option<Expr> {
+        match self.parse_expr_list(Token::RBracket) {
+            Some(list) => Some(Expr::Literal(Literal::Array(list))),
+            None => None,
+        }
+    }
+
+    fn parse_expr_list(&mut self, end: Token) -> Option<Vec<Expr>> {
         let mut args = vec![];
 
-        if self.peek_token_is(Token::RParen) {
+        if self.peek_token_is(end.clone()) {
             self.next_token();
             return Some(args);
         }
@@ -283,7 +291,7 @@ impl Parser {
             };
         }
 
-        if !self.expect_peek(Token::RParen) {
+        if !self.expect_peek(end) {
             return None;
         }
         Some(args)
@@ -927,10 +935,35 @@ let myVar = 10;
         let mut parser = Parser::new(lexer);
 
         let program = parser.parse_program();
+        println!("{:?}", program);
         check_parser_errors(&parser);
         assert_eq!(output, program.statements[0]);
     }
 
+    #[test]
+    fn test_array_literal_parsing() {
+        let input = String::from("[1, 2 * 3, 3 + 3]");
+        let output = Stmt::ExprStmt(Expr::Literal(Literal::Array(vec![
+            Expr::Literal(Literal::Int(1)),
+            Expr::Infix(
+                Box::new(Expr::Literal(Literal::Int(2))),
+                Infix::Multiply,
+                Box::new(Expr::Literal(Literal::Int(3))),
+            ),
+            Expr::Infix(
+                Box::new(Expr::Literal(Literal::Int(3))),
+                Infix::Plus,
+                Box::new(Expr::Literal(Literal::Int(3))),
+            ),
+        ])));
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+        println!("{:?}", program);
+        check_parser_errors(&parser);
+        assert_eq!(output, program.statements[0]);
+    }
     fn check_parser_errors(parser: &Parser) {
         let errors = parser.errors();
         if errors.len() == 0 {

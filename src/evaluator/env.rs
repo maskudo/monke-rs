@@ -36,12 +36,10 @@ impl Env {
     pub fn set(&mut self, name: String, value: Object) {
         self.store.insert(name, value);
     }
-
 }
 
 impl From<HashMap<String, Object>> for Env {
     fn from(store: HashMap<String, Object>) -> Self {
-        Env{store, outer: None}
+        Env { store, outer: None }
     }
 }
-    

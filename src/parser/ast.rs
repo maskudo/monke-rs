@@ -60,6 +60,7 @@ pub enum Literal {
     Int(i64),
     String(String),
     Bool(bool),
+    Array(Vec<Expr>),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -82,6 +83,7 @@ pub enum Precedence {
     PRODUCT,     //*
     PREFIX,      // -x or !x
     CALL,        //myFunc(x)
+    INDEX,       // array[index]
 }
 
 impl Display for Infix {
@@ -124,6 +126,14 @@ impl Display for Expr {
                 Literal::Bool(bool) => {
                     write!(f, "{bool}")
                 }
+                Literal::Array(exprs) => {
+                    // write!(f, "[{exprs}]")
+                    write!(f, "[")?;
+                    for expr in exprs.iter() {
+                        write!(f, "{expr},")?;
+                    }
+                    write!(f, "]")
+                }
             },
             Expr::Ident(ident) => {
                 write!(f, "{ident}")
@@ -146,6 +156,13 @@ impl Display for Literal {
             Literal::Int(i) => write!(f, "{i}"),
             Literal::String(s) => write!(f, "{s}"),
             Literal::Bool(b) => write!(f, "{b}"),
+            Literal::Array(exprs) => {
+                write!(f, "[")?;
+                for expr in exprs.iter() {
+                    write!(f, "{expr},")?;
+                }
+                write!(f, "]")
+            }
         }
     }
 }

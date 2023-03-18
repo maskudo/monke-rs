@@ -254,7 +254,9 @@ mod test {
             !-/*5;
             10 == 10;
             10 != 9;
-            \"hello world\"",
+            \"hello world\";
+            [1,2];
+            ",
         );
         let tokens = vec![
             Not,
@@ -272,6 +274,13 @@ mod test {
             IntLiteral(9),
             SemiColon,
             StringLiteral(String::from("hello world")),
+            SemiColon,
+            LBracket,
+            IntLiteral(1),
+            Comma,
+            IntLiteral(2),
+            RBracket,
+            SemiColon,
         ];
 
         let mut tokenized_input = Lexer::new(input);

@@ -1,3 +1,4 @@
+#![allow(unused_variables)]
 use super::env::Env;
 use crate::parser::ast::{BlockStmt, Ident};
 use std::{
@@ -20,17 +21,34 @@ pub enum Object {
         env: Rc<RefCell<Env>>,
     },
     Builtin(NoOfParams, BuiltInFunc),
+    Array(Vec<Object>),
     Null,
     Error(String),
 }
 
 impl Display for Object {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        match *self {
+        match self {
             Object::Int(ref value) => write!(f, "{}", value),
             Object::Bool(ref value) => write!(f, "{}", value),
             Object::String(ref value) => write!(f, "{}", value),
             Object::Error(ref error) => write!(f, "{}", error),
+            Object::Array(ref array) => {
+                write!(f, "[")?;
+                for (i, obj) in array.iter().enumerate() {
+                    write!(f, "{}", obj)?;
+                    if i != array.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+                write!(f, "]")?;
+                Ok(())
+            }
+            Object::Function {
+                parameters,
+                body,
+                env,
+            } => write!(f, "<function>"),
             _ => write!(f, "null"),
         }
     }

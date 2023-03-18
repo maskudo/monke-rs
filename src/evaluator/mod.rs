@@ -282,7 +282,15 @@ impl Evaluator {
             Literal::Int(value) => Some(Object::Int(value)),
             Literal::String(value) => Some(Object::String(value)),
             Literal::Bool(value) => Some(Object::Bool(value)),
+            Literal::Array(objects) => Some(self.eval_array_literal(objects)),
         }
+    }
+
+    fn eval_array_literal(&mut self, objects: Vec<Expr>)-> Object {
+        Object::Array(objects
+            .iter()
+            .map(|obj| self.eval_expr(obj.clone()).unwrap_or(Object::Null))
+            .collect::<Vec<_>>())
     }
 }
 
@@ -558,6 +566,48 @@ mod test {
                 Some(Object::Error(String::from("wrong number of arguments, expected 1, got 2"))),
             ),
         ];
+        for (input, expect) in tests {
+            assert_eq!(expect, eval(input));
+        }
+    }
+
+    #[test]
+    fn test_array_literal() {
+        let tests = vec![
+            (
+                "[1, 2 * 2, 3 + 3]",
+                Some(Object::Array(vec![
+                    Object::Int(1),
+                    Object::Int(4),
+                    Object::Int(6),
+                ])),
+            )
+        ];
+        for (input, expect) in tests {
+            assert_eq!(expect, eval(input));
+        }
+    }
+
+    #[test]
+    fn test_array_index_expr() {
+        let tests = vec![
+            ("[1, 2, 3][0]", Some(Object::Int(1))),
+            ("[1, 2, 3][1]", Some(Object::Int(2))),
+            ("let i = 0; [1][i]", Some(Object::Int(1))),
+            ("[1, 2, 3][1 + 1];", Some(Object::Int(3))),
+            ("let myArray = [1, 2, 3]; myArray[2];", Some(Object::Int(3))),
+            (
+                "let myArray = [1, 2, 3]; myArray[0] + myArray[1] + myArray[2];",
+                Some(Object::Int(6)),
+            ),
+            (
+                "let myArray = [1, 2, 3]; let i = myArray[0]; myArray[i];",
+                Some(Object::Int(2)),
+            ),
+            ("[1, 2, 3][3]", Some(Object::Null)),
+            ("[1, 2, 3][-1]", Some(Object::Null)),
+        ];
+
         for (input, expect) in tests {
             assert_eq!(expect, eval(input));
         }
