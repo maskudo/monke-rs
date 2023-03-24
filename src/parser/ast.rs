@@ -62,6 +62,7 @@ pub enum Literal {
     String(String),
     Bool(bool),
     Array(Vec<Expr>),
+    Hash(Vec<(Expr, Expr)>),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -128,12 +129,15 @@ impl Display for Expr {
                     write!(f, "{bool}")
                 }
                 Literal::Array(exprs) => {
-                    // write!(f, "[{exprs}]")
-                    write!(f, "[")?;
-                    for expr in exprs.iter() {
-                        write!(f, "{expr},")?;
-                    }
-                    write!(f, "]")
+                    write!(f, "{}", Literal::Array(exprs.clone()))
+                    // write!(f, "[")?;
+                    // for expr in exprs.iter() {
+                    //     write!(f, "{expr},")?;
+                    // }
+                    // write!(f, "]")
+                }
+                Literal::Hash(exprs) => {
+                    write!(f, "{}", Literal::Hash(exprs.clone()))
                 }
             },
             Expr::Ident(ident) => {
@@ -163,6 +167,14 @@ impl Display for Literal {
                     write!(f, "{expr},")?;
                 }
                 write!(f, "]")
+            }
+            Literal::Hash(exprs) => {
+                // write!(f, "[{exprs}]")
+                write!(f, "{{")?;
+                for expr in exprs.iter() {
+                    write!(f, "{} : {}", expr.0, expr.1)?;
+                }
+                write!(f, "}}")
             }
         }
     }

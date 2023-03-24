@@ -256,6 +256,7 @@ mod test {
             10 != 9;
             \"hello world\";
             [1,2];
+            {\"foo\": \"bar\"}
             ",
         );
         let tokens = vec![
@@ -281,6 +282,12 @@ mod test {
             IntLiteral(2),
             RBracket,
             SemiColon,
+            LBrace,
+            StringLiteral(format!("foo")),
+            Colon,
+            StringLiteral(format!("bar")),
+            RBrace,
+            EOF,
         ];
 
         let mut tokenized_input = Lexer::new(input);

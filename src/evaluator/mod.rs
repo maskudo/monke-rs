@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::parser::ast::{self, Expr, Ident, Infix, Literal, Program, Stmt};
@@ -107,6 +108,14 @@ impl Evaluator {
                     Object::Error(format!("index is not an integer, got:{}", index))
                 }
             }
+            Object::Hash(ref hash) => match index {
+                Object::Int(_) | Object::Bool(_) | Object::String(_) => match hash.get(&index) {
+                    Some(o) => o.clone(),
+                    None => Object::Null,
+                },
+                Object::Error(_) => index,
+                _ => Object::Error(format!("unhashable key: {}", index)),
+            },
             _ => Object::Error(format!("unknown operator on {}: {}", left, index)),
         }
     }
@@ -312,6 +321,8 @@ impl Evaluator {
             Literal::String(value) => Some(Object::String(value)),
             Literal::Bool(value) => Some(Object::Bool(value)),
             Literal::Array(objects) => Some(self.eval_array_literal(objects)),
+            Literal::Hash(pairs) => Some(self.eval_hash_literal(pairs)),
+            // _ => Some(Object::Error(format!("not implemented"))),
         }
     }
 
@@ -323,11 +334,28 @@ impl Evaluator {
                 .collect::<Vec<_>>(),
         )
     }
+
+    fn eval_hash_literal(&mut self, pairs: Vec<(Expr, Expr)>) -> Object {
+        let mut hash = HashMap::new();
+
+        for (key, val) in pairs {
+            let key = self.eval_expr(key).unwrap_or(Object::Null);
+            if let Object::Error(err) = &key {
+                return Object::Error(err.to_owned());
+            }
+            let val = self.eval_expr(val).unwrap_or(Object::Null);
+            if let Object::Error(err) = &val {
+                return Object::Error(err.to_owned());
+            }
+            hash.insert(key, val);
+        }
+        Object::Hash(hash)
+    }
 }
 
 #[cfg(test)]
 mod test {
-    use std::{cell::RefCell, rc::Rc, vec};
+    use std::{cell::RefCell, collections::HashMap, rc::Rc, vec};
 
     use crate::{
         lexer::Lexer,
@@ -713,6 +741,48 @@ mod test {
                 "[1, 2, 3][-1]",
                 Some(Object::Error(format!("index out of range: -1"))),
             ),
+        ];
+
+        for (input, expect) in tests {
+            assert_eq!(expect, eval(input));
+        }
+    }
+
+    #[test]
+    fn test_hash_literal() {
+        let input = r#"
+let two = "two";
+{
+  "one": 10 - 9,
+  two: 1 + 1,
+  "thr" + "ee": 6 / 2,
+  4: 4,
+  true: 5,
+  false: 6
+}
+"#;
+
+        let mut hash = HashMap::new();
+        hash.insert(Object::String(String::from("one")), Object::Int(1));
+        hash.insert(Object::String(String::from("two")), Object::Int(2));
+        hash.insert(Object::String(String::from("three")), Object::Int(3));
+        hash.insert(Object::Int(4), Object::Int(4));
+        hash.insert(Object::Bool(true), Object::Int(5));
+        hash.insert(Object::Bool(false), Object::Int(6));
+
+        assert_eq!(Some(Object::Hash(hash)), eval(input),);
+    }
+
+    #[test]
+    fn test_hash_index_expr() {
+        let tests = vec![
+            ("{\"foo\": 5}[\"foo\"]", Some(Object::Int(5))),
+            ("{\"foo\": 5}[\"bar\"]", Some(Object::Null)),
+            ("let key = \"foo\"; {\"foo\": 5}[key]", Some(Object::Int(5))),
+            ("{}[\"foo\"]", Some(Object::Null)),
+            ("{5: 5}[5]", Some(Object::Int(5))),
+            ("{true: 5}[true]", Some(Object::Int(5))),
+            ("{false: 5}[false]", Some(Object::Int(5))),
         ];
 
         for (input, expect) in tests {

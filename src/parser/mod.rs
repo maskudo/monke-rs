@@ -148,6 +148,7 @@ impl Parser {
             Token::Plus | Token::Minus | Token::Not => self.parse_prefix_expr(),
             Token::LParen => self.parse_grouped_expr(),
             Token::LBracket => self.parse_array_expr(),
+            Token::LBrace => self.parse_hash_expr(),
             Token::If => self.parse_if_expr(),
             Token::Function => self.parse_function_expr(),
             _ => None,
@@ -275,6 +276,28 @@ impl Parser {
             Some(list) => Some(Expr::Literal(Literal::Array(list))),
             None => None,
         }
+    }
+
+    fn parse_hash_expr(&mut self) -> Option<Expr> {
+        let mut key_vals = vec![];
+        while !self.peek_token_is(Token::RBrace) {
+            self.next_token();
+            let key = self.parse_expression(Precedence::LOWEST)?;
+
+            if !self.expect_peek(Token::Colon) {
+                return None;
+            }
+            self.next_token();
+            let value = self.parse_expression(Precedence::LOWEST)?;
+            key_vals.push((key, value));
+            if !self.peek_token_is(Token::RBrace) && !self.expect_peek(Token::Comma) {
+                return None;
+            }
+        }
+        if !self.expect_peek(Token::RBrace) {
+            return None;
+        }
+        Some(Expr::Literal(Literal::Hash(key_vals)))
     }
 
     fn parse_expr_list(&mut self, end: Token) -> Option<Vec<Expr>> {
@@ -863,7 +886,7 @@ let myVar = 10;
 
     #[test]
     fn test_function_literal_parsing() {
-        let input = String::from("fn(x,y) {{ x + y; }}");
+        let input = String::from("fn(x,y) { x + y; }");
         let output = Stmt::ExprStmt(Expr::Function {
             parameters: vec![Ident(String::from("x")), Ident(String::from("y"))],
             body: vec![Stmt::ExprStmt(Expr::Infix(
@@ -884,14 +907,14 @@ let myVar = 10;
     fn test_function_parameters_parsing() {
         let inputs = vec![
             (
-                String::from("fn() {{}};"),
+                String::from("fn() {};"),
                 Stmt::ExprStmt(Expr::Function {
                     parameters: vec![],
                     body: vec![],
                 }),
             ),
             (
-                String::from("fn(x) {{}};"),
+                String::from("fn(x) {};"),
                 Stmt::ExprStmt(Expr::Function {
                     parameters: vec![Ident(String::from("x"))],
                     body: vec![],
@@ -991,6 +1014,77 @@ let myVar = 10;
         println!("{:?}", program);
         check_parser_errors(&parser);
         assert_eq!(output, program.statements[0]);
+    }
+
+    #[test]
+    fn test_hash_literal_expr() {
+        let inputs = vec![
+            ("{}", Stmt::ExprStmt(Expr::Literal(Literal::Hash(vec![])))),
+            (
+                "{\"one\": 1, \"two\": 2, \"three\": 3}",
+                Stmt::ExprStmt(Expr::Literal(Literal::Hash(vec![
+                    (
+                        Expr::Literal(Literal::String(String::from("one"))),
+                        Expr::Literal(Literal::Int(1)),
+                    ),
+                    (
+                        Expr::Literal(Literal::String(String::from("two"))),
+                        Expr::Literal(Literal::Int(2)),
+                    ),
+                    (
+                        Expr::Literal(Literal::String(String::from("three"))),
+                        Expr::Literal(Literal::Int(3)),
+                    ),
+                ]))),
+            ),
+            (
+                "{\"one\": 0 + 1, \"two\": 10 - 8, \"three\": 15 / 5}",
+                Stmt::ExprStmt(Expr::Literal(Literal::Hash(vec![
+                    (
+                        Expr::Literal(Literal::String(String::from("one"))),
+                        Expr::Infix(
+                            Box::new(Expr::Literal(Literal::Int(0))),
+                            Infix::Plus,
+                            Box::new(Expr::Literal(Literal::Int(1))),
+                        ),
+                    ),
+                    (
+                        Expr::Literal(Literal::String(String::from("two"))),
+                        Expr::Infix(
+                            Box::new(Expr::Literal(Literal::Int(10))),
+                            Infix::Minus,
+                            Box::new(Expr::Literal(Literal::Int(8))),
+                        ),
+                    ),
+                    (
+                        Expr::Literal(Literal::String(String::from("three"))),
+                        Expr::Infix(
+                            Box::new(Expr::Literal(Literal::Int(15))),
+                            Infix::Divide,
+                            Box::new(Expr::Literal(Literal::Int(5))),
+                        ),
+                    ),
+                ]))),
+            ),
+            (
+                "{key: \"value\"}",
+                Stmt::ExprStmt(Expr::Literal(Literal::Hash(vec![(
+                    Expr::Ident(Ident(String::from("key"))),
+                    Expr::Literal(Literal::String(String::from("value"))),
+                )]))),
+            ),
+        ];
+
+        for (input, expected) in inputs {
+            let lexer = Lexer::new(String::from(input));
+            let mut parser = Parser::new(lexer);
+
+            let program = parser.parse_program();
+            check_parser_errors(&parser);
+
+            dbg!(&program.statements, &expected);
+            assert_eq!(program.statements[0], expected);
+        }
     }
 
     fn check_parser_errors(parser: &Parser) {
